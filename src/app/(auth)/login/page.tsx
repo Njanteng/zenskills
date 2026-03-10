@@ -17,9 +17,9 @@ export default function LoginPage() {
   return (
     <div className="w-full max-w-sm">
       <div className="text-center mb-8">
-        <Image src="/logo.png" alt="DevTrack" width={48} height={48} className="rounded-xl mx-auto mb-4" />
+        <Image src="/logo.png" alt="ZenSkills" width={48} height={48} className="rounded-xl mx-auto mb-4" />
         <h1 className="text-2xl font-bold">Welcome back</h1>
-        <p className="text-text-secondary mt-1">Sign in to your DevTrack account</p>
+        <p className="text-text-secondary mt-1">Sign in to your ZenSkills account</p>
       </div>
 
       <button

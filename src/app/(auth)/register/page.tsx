@@ -17,7 +17,7 @@ export default function RegisterPage() {
   return (
     <div className="w-full max-w-sm">
       <div className="text-center mb-8">
-        <Image src="/logo.png" alt="DevTrack" width={48} height={48} className="rounded-xl mx-auto mb-4" />
+        <Image src="/logo.png" alt="ZenSkills" width={48} height={48} className="rounded-xl mx-auto mb-4" />
         <h1 className="text-2xl font-bold">Create your account</h1>
         <p className="text-text-secondary mt-1">Start tracking your developer growth</p>
       </div>
@@ -53,7 +53,7 @@ export default function RegisterPage() {
       </button>
 
       <p className="text-center text-xs text-text-muted mt-4">
-        By signing up, you agree to use DevTrack to track your developer growth.
+        By signing up, you agree to use ZenSkills to track your developer growth.
       </p>
 
       <p className="text-center text-sm text-text-secondary mt-6">

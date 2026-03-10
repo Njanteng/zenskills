@@ -6,6 +6,7 @@ import {
   ArrowRight,
   Code2,
   Target,
+  Heart,
   Github,
   Flame,
   Clock,
@@ -315,9 +316,9 @@ export default async function HomePage() {
       </main>
 
       <footer className="text-center py-6 text-sm text-text-muted border-t border-border">
-        <a href="https://github.com/codeafridi/zenskills" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 hover:text-text-secondary transition-colors">
-          <Github size={14} />
-          Open source on GitHub
+        <a href="#" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 hover:text-text-secondary transition-colors">
+          Made with <Heart size={14}/>
+          by Claudia Njanteng
         </a>
       </footer>
     </div>
