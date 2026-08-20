@@ -44,6 +44,22 @@ Vercel détecte automatiquement `api/index.js` comme fonction serverless (toutes
 - `routes/` — API REST (`/api/cours`, `/api/parcours`, `/api/competences`, `/api/projets`, `/api/dashboard`), toutes asynchrones.
 - `public/` — frontend statique (HTML/CSS/JS vanilla), inchangé — il continue de parler à `/api/*` en JSON, aucune modification nécessaire.
 
+## Protéger l'application (authentification)
+
+L'app est mono-utilisateur et n'a pas de système de comptes — une fois déployée publiquement, une authentification HTTP Basic (identifiant + mot de passe uniques) protège **toute l'application**, y compris les fichiers statiques, via `middleware.js` à la racine (Vercel Routing Middleware, s'exécute avant le routage vers `public/` ou `api/`).
+
+**Configuration** :
+1. Sur Vercel, allez dans **Settings → Environment Variables**.
+2. Ajoutez `BASIC_AUTH_USER` et `BASIC_AUTH_PASSWORD`, en cochant Production, Preview et Development.
+3. Redéployez (les variables d'environnement ne sont prises en compte qu'au prochain déploiement).
+
+À la prochaine visite, le navigateur affichera une popup native demandant l'identifiant et le mot de passe.
+
+**Important** :
+- Si `BASIC_AUTH_USER` ou `BASIC_AUTH_PASSWORD` ne sont pas définis, le middleware laisse passer tout le monde sans bloquer — pensez à vérifier qu'ils sont bien configurés après le déploiement.
+- Ce mécanisme ne protège **pas** l'environnement local (`npm start`) : `middleware.js` n'est interprété que par la plateforme Vercel. Pour le tester en local, utilisez `vercel dev` avec `BASIC_AUTH_USER`/`BASIC_AUTH_PASSWORD` dans votre `.env`.
+- C'est une protection simple (un seul couple identifiant/mot de passe partagé), adaptée à un usage personnel — pas un vrai système de comptes utilisateurs.
+
 ## Nouveautés de cette version
 
 - Migration complète de SQLite (`better-sqlite3`) vers Postgres (Neon via `pg`).
