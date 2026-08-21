@@ -163,12 +163,19 @@ async function loadDashboard() {
     return;
   }
 
-  container.innerHTML = data.parcoursList.map(p => `
+  container.innerHTML = data.parcoursList.map(p => {
+    const doneCount = p.cours.filter(c => c.statut === 1).length;
+    const totalCount = p.cours.length;
+    const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
+    return `
     <div class="dp-item" data-id="${p.id}">
       <div class="dp-header">
         <span class="dp-caret">▶</span>
-        <span class="dp-title">${esc(p.titre)}</span>
-        <span class="dp-badge ${p.completed ? 'done' : ''}">${p.completed ? 'Terminé' : `${p.cours.filter(c=>c.statut===1).length}/${p.cours.length}`}</span>
+        <div class="dp-header-main">
+          <span class="dp-title">${esc(p.titre)}</span>
+          <div class="dp-progress-bar"><div class="dp-progress-fill" style="width:${pct}%"></div></div>
+        </div>
+        <span class="dp-badge ${p.completed ? 'done' : ''}">${p.completed ? 'Terminé' : `${doneCount}/${totalCount}`}</span>
       </div>
       <div class="dp-body">
         ${p.cours.length === 0
@@ -182,7 +189,8 @@ async function loadDashboard() {
           `).join('')}
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 
   container.querySelectorAll('.dp-header').forEach(h => {
     h.addEventListener('click', () => h.closest('.dp-item').classList.toggle('open'));

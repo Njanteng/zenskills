@@ -281,6 +281,31 @@ button, input, select, textarea {
 
 .dp-title { flex: 1; font-weight: 500; }
 
+.dp-header-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+
+.dp-header-main .dp-title { flex: none; }
+
+.dp-progress-bar {
+  height: 3px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+  max-width: 320px;
+}
+
+.dp-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.2s;
+}
+
 .dp-badge {
   font-size: 11px;
   padding: 3px 9px;
