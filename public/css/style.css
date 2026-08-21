@@ -1,16 +1,16 @@
 :root {
-  --bg: #0f120f;
-  --bg-raised: #171b17;
-  --bg-hover: #1e231e;
-  --border: #262c26;
-  --border-soft: #1c211c;
-  --text: #e7e5df;
-  --text-muted: #8b9188;
-  --text-faint: #5c635c;
-  --accent: #7c9885;
-  --accent-strong: #9ab8a3;
-  --gold: #b99a5b;
-  --danger: #b5675a;
+  --bg: #0d0e1e;
+  --bg-raised: #15172c;
+  --bg-hover: #1c1f3d;
+  --border: #2a2d52;
+  --border-soft: #1e2040;
+  --text: #e8e6f5;
+  --text-muted: #9491bd;
+  --text-faint: #5f5c8a;
+  --accent: #a599f0;
+  --accent-strong: #c0b6fa;
+  --gold: #d4af7a;
+  --danger: #d1728a;
   --radius: 6px;
   --font-display: 'Source Serif 4', Georgia, serif;
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -62,7 +62,7 @@ button, input, select, textarea {
   height: 10px;
   border-radius: 50%;
   background: var(--accent);
-  box-shadow: 0 0 0 3px rgba(124, 152, 133, 0.15);
+  box-shadow: 0 0 0 3px rgba(165, 153, 240, 0.18);
   flex-shrink: 0;
 }
 
@@ -315,7 +315,7 @@ button, input, select, textarea {
 }
 
 .dp-badge.done {
-  background: rgba(124, 152, 133, 0.18);
+  background: rgba(165, 153, 240, 0.20);
   color: var(--accent-strong);
 }
 
@@ -378,7 +378,7 @@ button, input, select, textarea {
 .btn-primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #0f120f;
+  color: #0d0e1e;
 }
 
 .btn-primary:hover { background: var(--accent-strong); }
@@ -389,7 +389,7 @@ button, input, select, textarea {
   color: var(--danger);
 }
 
-.btn-danger:hover { background: rgba(181, 103, 90, 0.12); border-color: var(--danger); }
+.btn-danger:hover { background: rgba(209, 114, 138, 0.14); border-color: var(--danger); }
 
 .btn-text {
   background: none;
@@ -491,10 +491,10 @@ button, input, select, textarea {
   color: var(--text-muted);
 }
 
-.tag.category { color: var(--gold); background: rgba(185, 154, 91, 0.12); }
-.tag.competence { color: var(--accent-strong); background: rgba(124, 152, 133, 0.12); }
+.tag.category { color: var(--gold); background: rgba(212, 175, 122, 0.14); }
+.tag.competence { color: var(--accent-strong); background: rgba(165, 153, 240, 0.14); }
 .tag.format { color: var(--text); background: var(--bg-hover); }
-.tag.niveau { color: var(--gold); background: rgba(185, 154, 91, 0.12); letter-spacing: 1px; }
+.tag.niveau { color: var(--gold); background: rgba(212, 175, 122, 0.14); letter-spacing: 1px; }
 .tag.nb-parcours { color: var(--text-muted); }
 
 /* List item actions */
@@ -524,7 +524,7 @@ button, input, select, textarea {
 }
 
 .page-btn:hover { background: var(--bg-hover); }
-.page-btn.active { background: var(--accent); border-color: var(--accent); color: #0f120f; }
+.page-btn.active { background: var(--accent); border-color: var(--accent); color: #0d0e1e; }
 .page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
 /* Modal */
