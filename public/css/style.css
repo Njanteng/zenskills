@@ -49,6 +49,10 @@ button, input, select, textarea {
   display: flex;
   flex-direction: column;
   gap: 36px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
 }
 
 .sidebar-footer {
@@ -144,7 +148,7 @@ button, input, select, textarea {
 .content {
   flex: 1;
   padding: 40px 48px;
-  max-width: 980px;
+  max-width: 1320px;
 }
 
 .tab-panel { display: none; }
@@ -268,8 +272,9 @@ button, input, select, textarea {
 
 /* Dashboard parcours accordion */
 .dashboard-parcours-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  align-items: start;
   gap: 10px;
 }
 
@@ -726,11 +731,12 @@ button, input, select, textarea {
 
 @media (max-width: 760px) {
   .app { flex-direction: column; }
-  .sidebar { width: 100%; flex-direction: row; align-items: center; padding: 16px 20px; }
+  .sidebar { width: 100%; height: auto; flex-direction: row; align-items: center; padding: 16px 20px; }
   .nav { flex-direction: row; overflow-x: auto; }
   .brand-tagline { display: none; }
   .content { padding: 24px; }
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
   .field-row { flex-direction: column; gap: 0; }
   .sidebar-footer { display: none; }
+  .dashboard-parcours-list { grid-template-columns: 1fr; }
 }
