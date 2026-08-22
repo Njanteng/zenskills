@@ -60,6 +60,16 @@ L'app est mono-utilisateur et n'a pas de système de comptes — une fois déplo
 - Ce mécanisme ne protège **pas** l'environnement local (`npm start`) : `middleware.js` n'est interprété que par la plateforme Vercel. Pour le tester en local, utilisez `vercel dev` avec `BASIC_AUTH_USER`/`BASIC_AUTH_PASSWORD` dans votre `.env`.
 - C'est une protection simple (un seul couple identifiant/mot de passe partagé), adaptée à un usage personnel — pas un vrai système de comptes utilisateurs.
 
+## Export / Import Excel (sauvegarde et restauration)
+
+Deux boutons en bas de la barre latérale :
+- **Exporter (.xlsx)** : télécharge un classeur avec un onglet par table (`Cours`, `Competences`, `Cours_Competences`, `Parcours`, `Parcours_Cours`, `Projets`). Les deux onglets `*_Competences`/`*_Cours` représentent les relations (compétences d'un cours, cours d'un parcours) par **titre/nom**, pas par id.
+- **Importer (.xlsx)** : après confirmation, **remplace entièrement** le contenu de la base par celui du fichier (`TRUNCATE ... CASCADE` puis réinsertion). Les identifiants sont régénérés ; le rapprochement entre onglets se fait par titre de cours / nom de compétence / titre de parcours — s'il existe des doublons de titre dans le fichier, seule la dernière ligne portant ce titre sera utilisée pour les relations.
+
+**Utilisation typique** : export régulier comme sauvegarde personnelle, ou pour éditer en masse dans Excel puis réimporter. Le fichier généré par Export est directement réimportable tel quel — c'est le format de référence à respecter si vous éditez le classeur à la main.
+
+⚠️ L'import est irréversible sans une sauvegarde préalable — une confirmation est demandée avant l'envoi, mais pensez à exporter avant d'importer si vous n'êtes pas sûr du contenu du fichier.
+
 ## Nouveautés de cette version
 
 - Migration complète de SQLite (`better-sqlite3`) vers Postgres (Neon via `pg`).

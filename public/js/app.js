@@ -902,6 +902,46 @@ function debounce(fn, delay = 300) {
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), delay); };
 }
 
+// ===================== EXPORT / IMPORT (Excel) =====================
+document.getElementById('btn-import').addEventListener('click', () => {
+  document.getElementById('import-file-input').click();
+});
+
+document.getElementById('import-file-input').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  e.target.value = ''; // permet de resélectionner le même fichier plus tard
+  if (!file) return;
+
+  const confirmed = confirm(
+    "L'import va remplacer TOUTES les données actuelles (cours, parcours, compétences, projets) " +
+    'par le contenu de ce fichier. Cette action est irréversible. Continuer ?'
+  );
+  if (!confirmed) return;
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const res = await fetch('/api/import', { method: 'POST', body: formData });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || "Échec de l'import.");
+    }
+    const summary = await res.json();
+    let message = `Import terminé :\n- ${summary.cours} cours\n- ${summary.competences} compétences\n- ${summary.parcours} parcours\n- ${summary.projets} projets`;
+    if (summary.liensCoursCompetencesIgnores) {
+      message += `\n- ${summary.liensCoursCompetencesIgnores} lien(s) cours↔compétence ignoré(s) (titre introuvable)`;
+    }
+    if (summary.liensParcoursCoursIgnores) {
+      message += `\n- ${summary.liensParcoursCoursIgnores} lien(s) parcours↔cours ignoré(s) (titre introuvable)`;
+    }
+    alert(message);
+    window.location.reload();
+  } catch (err) {
+    toast(err.message, true);
+  }
+});
+
 // ===================== Init =====================
 (async function init() {
   try {

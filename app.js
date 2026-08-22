@@ -6,6 +6,7 @@ const parcoursRoutes = require('./routes/parcours');
 const competencesRoutes = require('./routes/competences');
 const projetsRoutes = require('./routes/projets');
 const dashboardRoutes = require('./routes/dashboard');
+const backupRoutes = require('./routes/backup');
 
 const app = express();
 
@@ -21,6 +22,7 @@ app.use('/api/parcours', parcoursRoutes);
 app.use('/api/competences', competencesRoutes);
 app.use('/api/projets', projetsRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api', backupRoutes); // expose /api/export et /api/import
 
 // Fallback pour le développement local uniquement (SPA à une seule page).
 app.get('*', (req, res, next) => {
