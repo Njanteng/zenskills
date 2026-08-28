@@ -39,12 +39,15 @@ const state = {
   formats: [],
   allCompetences: [],
   allCours: [],
-  page: { cours: 1, parcours: 1, competences: 1, projets: 1 },
+  allParcours: [],
+  allProjets: [],
+  page: { cours: 1, parcours: 1, competences: 1, projets: 1, taches: 1 },
   filters: {
     cours: { search: '', statut: '', type: '', categorie: '', format: '', niveau: '', competence: '' },
     parcours: { search: '', statut: '' },
     competences: { search: '', cours: '' },
-    projets: { search: '', statut: '' }
+    projets: { search: '', statut: '' },
+    taches: { search: '', statut: '' }
   }
 };
 
@@ -61,6 +64,7 @@ function switchTab(tab) {
   if (tab === 'parcours') loadParcours();
   if (tab === 'competences') loadCompetences();
   if (tab === 'projets') loadProjets();
+  if (tab === 'taches') loadTaches();
 }
 
 // ===================== Modal helpers =====================
@@ -124,6 +128,14 @@ async function refreshAllCompetencesCache() {
   compFilterSelect.innerHTML = '<option value="">Compétence : toutes</option>' +
     state.allCompetences.map(c => `<option value="${c.id}">${esc(c.nom)}</option>`).join('');
   compFilterSelect.value = current;
+}
+
+async function refreshAllParcoursCache() {
+  state.allParcours = await api('/api/parcours/all');
+}
+
+async function refreshAllProjetsCache() {
+  state.allProjets = await api('/api/projets/all');
 }
 
 // ===================== Dashboard =====================
@@ -291,6 +303,7 @@ function renderPagination(entity, res) {
       if (entity === 'parcours') loadParcours();
       if (entity === 'competences') loadCompetences();
       if (entity === 'projets') loadProjets();
+      if (entity === 'taches') loadTaches();
     });
   });
 }
@@ -896,11 +909,192 @@ document.getElementById('filter-projets-statut').addEventListener('change', e =>
   state.filters.projets.statut = e.target.value; state.page.projets = 1; loadProjets();
 });
 
-// ===================== Utils =====================
-function debounce(fn, delay = 300) {
-  let t;
-  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), delay); };
+// ===================== TACHES =====================
+function tachesQueryString() {
+  const f = state.filters.taches;
+  const params = new URLSearchParams();
+  if (f.search) params.set('search', f.search);
+  if (f.statut !== '') params.set('statut', f.statut);
+  params.set('page', state.page.taches);
+  return params.toString();
 }
+
+async function loadTaches() {
+  const res = await api(`/api/taches?${tachesQueryString()}`);
+  renderTachesList(res);
+}
+
+function lienLabel(lien) {
+  if (!lien) return '';
+  const prefix = lien.type === 'cours' ? 'Cours' : lien.type === 'parcours' ? 'Parcours' : 'Projet';
+  return `${prefix} : ${lien.titre}`;
+}
+
+function renderTachesList(res) {
+  const list = document.getElementById('list-taches');
+  if (res.data.length === 0) {
+    list.innerHTML = '<div class="list-empty">Aucune tâche ne correspond à votre recherche.</div>';
+  } else {
+    list.innerHTML = res.data.map(t => `
+      <div class="list-item">
+        <input type="checkbox" class="list-item-checkbox tache-toggle" data-id="${t.id}" ${t.statut === 1 ? 'checked' : ''}>
+        <div class="list-item-main">
+          <div class="list-item-title ${t.statut === 1 ? 'done' : ''}">${esc(t.titre)}</div>
+          ${t.lien ? `<div class="tag-row"><span class="tag lien">${esc(lienLabel(t.lien))}</span></div>` : ''}
+        </div>
+        <div class="list-item-actions">
+          <button class="btn-text btn-edit-tache" data-id="${t.id}">Modifier</button>
+          <button class="btn-text btn-delete-tache" data-id="${t.id}" style="color:var(--danger)">Supprimer</button>
+        </div>
+      </div>
+    `).join('');
+  }
+  renderPagination('taches', res);
+
+  list.querySelectorAll('.tache-toggle').forEach(cb => {
+    cb.addEventListener('change', async () => {
+      try {
+        await api(`/api/taches/${cb.dataset.id}/statut`, {
+          method: 'PATCH',
+          body: JSON.stringify({ statut: cb.checked ? 1 : 0 })
+        });
+        loadTaches();
+      } catch (err) { toast(err.message, true); }
+    });
+  });
+  list.querySelectorAll('.btn-edit-tache').forEach(b => b.addEventListener('click', () => openTacheModal(b.dataset.id)));
+  list.querySelectorAll('.btn-delete-tache').forEach(b => b.addEventListener('click', () => deleteTache(b.dataset.id)));
+}
+
+async function deleteTache(id) {
+  if (!confirm('Supprimer cette tâche ?')) return;
+  try {
+    await api(`/api/taches/${id}`, { method: 'DELETE' });
+    toast('Tâche supprimée.');
+    loadTaches();
+  } catch (err) { toast(err.message, true); }
+}
+
+async function ensureLienCachesLoaded() {
+  const jobs = [];
+  if (state.allCours.length === 0) jobs.push(refreshAllCoursCache());
+  if (state.allParcours.length === 0) jobs.push(refreshAllParcoursCache());
+  if (state.allProjets.length === 0) jobs.push(refreshAllProjetsCache());
+  if (jobs.length) await Promise.all(jobs);
+}
+
+function optionsForLienType(type) {
+  if (type === 'cours') return state.allCours;
+  if (type === 'parcours') return state.allParcours;
+  if (type === 'projet') return state.allProjets;
+  return [];
+}
+
+async function openTacheModal(id) {
+  const editing = !!id;
+  await ensureLienCachesLoaded();
+
+  let tache = null;
+  if (editing) {
+    const res = await api(`/api/taches?search=&page=1`);
+    tache = res.data.find(t => String(t.id) === String(id));
+    for (let p = 2; p <= res.totalPages && !tache; p++) {
+      const r = await api(`/api/taches?page=${p}`);
+      tache = r.data.find(x => String(x.id) === String(id));
+    }
+  }
+
+  const initialLienType = tache?.lien?.type || '';
+  const initialLienId = tache?.lien?.id || '';
+
+  openModal(`
+    <h2>${editing ? 'Modifier la tâche' : 'Nouvelle tâche'}</h2>
+    <form id="form-tache">
+      <div class="field">
+        <label>Titre</label>
+        <input type="text" name="titre" value="${esc(tache?.titre || '')}" required>
+      </div>
+      <div class="field">
+        <label><input type="checkbox" name="statut" ${tache?.statut === 1 ? 'checked' : ''}> Marquer comme faite</label>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Lier à (optionnel)</label>
+          <select name="lien_type" id="tache-lien-type">
+            <option value="">Aucun</option>
+            <option value="cours" ${initialLienType === 'cours' ? 'selected' : ''}>Cours</option>
+            <option value="parcours" ${initialLienType === 'parcours' ? 'selected' : ''}>Parcours</option>
+            <option value="projet" ${initialLienType === 'projet' ? 'selected' : ''}>Projet</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Élément</label>
+          <select name="lien_id" id="tache-lien-id"></select>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="btn-cancel">Annuler</button>
+        <button type="submit" class="btn btn-primary">${editing ? 'Enregistrer' : 'Créer'}</button>
+      </div>
+    </form>
+  `);
+
+  const lienTypeSelect = document.getElementById('tache-lien-type');
+  const lienIdSelect = document.getElementById('tache-lien-id');
+
+  function renderLienIdOptions(type, selectedId) {
+    const items = optionsForLienType(type);
+    if (!type) {
+      lienIdSelect.innerHTML = '<option value="">—</option>';
+      lienIdSelect.disabled = true;
+      return;
+    }
+    lienIdSelect.disabled = false;
+    lienIdSelect.innerHTML = items.length === 0
+      ? '<option value="">Aucun élément disponible</option>'
+      : items.map(i => `<option value="${i.id}" ${String(i.id) === String(selectedId) ? 'selected' : ''}>${esc(i.titre)}</option>`).join('');
+  }
+
+  renderLienIdOptions(initialLienType, initialLienId);
+  lienTypeSelect.addEventListener('change', () => renderLienIdOptions(lienTypeSelect.value, ''));
+
+  document.getElementById('btn-cancel').addEventListener('click', closeModal);
+  document.getElementById('form-tache').addEventListener('submit', async e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const lienType = fd.get('lien_type') || null;
+    const lienId = lienType ? fd.get('lien_id') : null;
+    if (lienType && !lienId) {
+      toast('Choisissez un élément à lier, ou sélectionnez "Aucun".', true);
+      return;
+    }
+    const payload = {
+      titre: fd.get('titre'),
+      statut: fd.get('statut') ? 1 : 0,
+      lien_type: lienType,
+      lien_id: lienId ? Number(lienId) : null
+    };
+    try {
+      if (editing) {
+        await api(`/api/taches/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+        toast('Tâche mise à jour.');
+      } else {
+        await api('/api/taches', { method: 'POST', body: JSON.stringify(payload) });
+        toast('Tâche créée.');
+      }
+      closeModal();
+      loadTaches();
+    } catch (err) { toast(err.message, true); }
+  });
+}
+
+document.getElementById('btn-new-tache').addEventListener('click', () => openTacheModal(null));
+document.getElementById('search-taches').addEventListener('input', debounce(e => {
+  state.filters.taches.search = e.target.value; state.page.taches = 1; loadTaches();
+}));
+document.getElementById('filter-taches-statut').addEventListener('change', e => {
+  state.filters.taches.statut = e.target.value; state.page.taches = 1; loadTaches();
+});
 
 // ===================== EXPORT / IMPORT (Excel) =====================
 document.getElementById('btn-import').addEventListener('click', () => {
@@ -909,11 +1103,11 @@ document.getElementById('btn-import').addEventListener('click', () => {
 
 document.getElementById('import-file-input').addEventListener('change', async (e) => {
   const file = e.target.files[0];
-  e.target.value = ''; // permet de resélectionner le même fichier plus tard
+  e.target.value = '';
   if (!file) return;
 
   const confirmed = confirm(
-    "L'import va remplacer TOUTES les données actuelles (cours, parcours, compétences, projets) " +
+    "L'import va remplacer TOUTES les données actuelles (cours, parcours, compétences, projets, tâches) " +
     'par le contenu de ce fichier. Cette action est irréversible. Continuer ?'
   );
   if (!confirmed) return;
@@ -928,12 +1122,15 @@ document.getElementById('import-file-input').addEventListener('change', async (e
       throw new Error(body.error || "Échec de l'import.");
     }
     const summary = await res.json();
-    let message = `Import terminé :\n- ${summary.cours} cours\n- ${summary.competences} compétences\n- ${summary.parcours} parcours\n- ${summary.projets} projets`;
+    let message = `Import terminé :\n- ${summary.cours} cours\n- ${summary.competences} compétences\n- ${summary.parcours} parcours\n- ${summary.projets} projets\n- ${summary.taches} tâches`;
     if (summary.liensCoursCompetencesIgnores) {
       message += `\n- ${summary.liensCoursCompetencesIgnores} lien(s) cours↔compétence ignoré(s) (titre introuvable)`;
     }
     if (summary.liensParcoursCoursIgnores) {
       message += `\n- ${summary.liensParcoursCoursIgnores} lien(s) parcours↔cours ignoré(s) (titre introuvable)`;
+    }
+    if (summary.liensTachesIgnores) {
+      message += `\n- ${summary.liensTachesIgnores} lien(s) de tâche ignoré(s) (élément introuvable)`;
     }
     alert(message);
     window.location.reload();
@@ -941,6 +1138,12 @@ document.getElementById('import-file-input').addEventListener('change', async (e
     toast(err.message, true);
   }
 });
+
+// ===================== Utils =====================
+function debounce(fn, delay = 300) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), delay); };
+}
 
 // ===================== Init =====================
 (async function init() {

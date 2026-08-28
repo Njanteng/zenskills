@@ -73,7 +73,6 @@ button, input, select, textarea {
 
 .sidebar-footer .btn:hover { color: var(--text); }
 
-
 .brand {
   display: flex;
   align-items: center;
@@ -270,7 +269,7 @@ button, input, select, textarea {
   letter-spacing: 1px;
 }
 
-/* Dashboard parcours accordion */
+/* Dashboard parcours grid */
 .dashboard-parcours-list {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -520,8 +519,8 @@ button, input, select, textarea {
 .tag.format { color: var(--text); background: var(--bg-hover); }
 .tag.niveau { color: var(--gold); background: rgba(212, 175, 122, 0.14); letter-spacing: 1px; }
 .tag.nb-parcours { color: var(--text-muted); }
+.tag.lien { color: var(--accent-strong); background: rgba(165, 153, 240, 0.14); }
 
-/* List item actions */
 .list-item-actions {
   display: flex;
   gap: 4px;
@@ -556,7 +555,7 @@ button, input, select, textarea {
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(5, 7, 5, 0.65);
+  background: rgba(5, 6, 15, 0.65);
   align-items: flex-start;
   justify-content: center;
   padding: 60px 20px;

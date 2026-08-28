@@ -1,10 +1,3 @@
-// Routing Middleware Vercel : s'exécute AVANT le routage vers les fichiers
-// statiques (public/) ou vers la fonction API (api/index.js). C'est donc le
-// bon endroit pour protéger l'application entière avec une authentification
-// HTTP Basic simple — pas seulement les routes /api/*.
-//
-// Ne protège rien en local (`npm start`) : ce fichier n'est interprété que
-// par la plateforme Vercel. Pour tester en local, utilisez `vercel dev`.
 import { next } from '@vercel/edge';
 
 export const config = {
@@ -15,9 +8,6 @@ export default function middleware(request) {
   const expectedUser = process.env.BASIC_AUTH_USER;
   const expectedPass = process.env.BASIC_AUTH_PASSWORD;
 
-  // Si les identifiants ne sont pas configurés sur Vercel, on ne bloque
-  // personne plutôt que de casser silencieusement le site (mais pensez à
-  // bien les définir avant de considérer l'app comme protégée).
   if (!expectedUser || !expectedPass) {
     return next();
   }

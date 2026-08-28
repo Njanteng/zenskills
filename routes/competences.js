@@ -17,7 +17,6 @@ async function attachCours(list) {
   }));
 }
 
-// Un niveau de maîtrise n'a de sens que sur une compétence acquise.
 function normalizeNiveau(statut, niveau) {
   if (!statut) return null;
   const n = Number(niveau);
@@ -25,11 +24,9 @@ function normalizeNiveau(statut, niveau) {
   return n;
 }
 
-// GET /api/competences
 router.get('/', async (req, res, next) => {
   try {
     const { search = '', cours, page = 1 } = req.query;
-
     const { rows } = await pool.query('SELECT * FROM competences ORDER BY LOWER(nom)');
     let list = await attachCours(rows);
 
@@ -39,7 +36,6 @@ router.get('/', async (req, res, next) => {
         k.nom.toLowerCase().includes(s) || (k.description || '').toLowerCase().includes(s)
       );
     }
-
     if (cours) {
       const coursId = Number(cours);
       list = list.filter(k => k.cours.some(c => c.id === coursId));
@@ -49,7 +45,6 @@ router.get('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// GET /api/competences/all (liste complète non paginée, utile pour les sélecteurs)
 router.get('/all', async (req, res, next) => {
   try {
     const { rows } = await pool.query('SELECT * FROM competences ORDER BY LOWER(nom)');
@@ -57,7 +52,6 @@ router.get('/all', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// POST /api/competences
 router.post('/', async (req, res, next) => {
   try {
     const { nom, description = '', statut = 0, niveau_maitrise } = req.body;
@@ -74,7 +68,6 @@ router.post('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// PUT /api/competences/:id
 router.put('/:id', async (req, res, next) => {
   try {
     const id = req.params.id;
@@ -94,14 +87,12 @@ router.put('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// PATCH /api/competences/:id/statut  -> marque acquise (propagation implicite : champ partagé)
 router.patch('/:id/statut', async (req, res, next) => {
   try {
     const id = req.params.id;
     const existing = await pool.query('SELECT * FROM competences WHERE id = $1', [id]);
     if (existing.rows.length === 0) return res.status(404).json({ error: 'Compétence introuvable' });
     const finalStatut = req.body.statut ? 1 : 0;
-    // Si on décoche "acquise", on vide le niveau de maîtrise.
     const finalNiveau = finalStatut ? existing.rows[0].niveau_maitrise : null;
     await pool.query('UPDATE competences SET statut = $1, niveau_maitrise = $2 WHERE id = $3', [finalStatut, finalNiveau, id]);
     const { rows } = await pool.query('SELECT * FROM competences WHERE id = $1', [id]);
@@ -110,7 +101,6 @@ router.patch('/:id/statut', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// PATCH /api/competences/:id/niveau  (mise à jour rapide du niveau de maîtrise seul)
 router.patch('/:id/niveau', async (req, res, next) => {
   try {
     const id = req.params.id;
@@ -125,7 +115,6 @@ router.patch('/:id/niveau', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// DELETE /api/competences/:id
 router.delete('/:id', async (req, res, next) => {
   try {
     const id = req.params.id;

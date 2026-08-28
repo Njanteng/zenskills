@@ -4,7 +4,6 @@ const { paginate } = require('../utils');
 
 const router = express.Router();
 
-// GET /api/projets
 router.get('/', async (req, res, next) => {
   try {
     const { search = '', statut, page = 1 } = req.query;
@@ -17,16 +16,20 @@ router.get('/', async (req, res, next) => {
         p.titre.toLowerCase().includes(s) || (p.description || '').toLowerCase().includes(s)
       );
     }
-
-    if (statut === '0' || statut === '1') {
-      list = list.filter(p => p.statut === Number(statut));
-    }
+    if (statut === '0' || statut === '1') list = list.filter(p => p.statut === Number(statut));
 
     res.json(paginate(list, page));
   } catch (err) { next(err); }
 });
 
-// POST /api/projets
+// GET /api/projets/all (liste légère, utile pour les sélecteurs — ex. modale de tâche)
+router.get('/all', async (req, res, next) => {
+  try {
+    const { rows } = await pool.query('SELECT id, titre FROM projets ORDER BY LOWER(titre)');
+    res.json(rows);
+  } catch (err) { next(err); }
+});
+
 router.post('/', async (req, res, next) => {
   try {
     const { titre, description = '', statut = 0 } = req.body;
@@ -40,7 +43,6 @@ router.post('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// PUT /api/projets/:id
 router.put('/:id', async (req, res, next) => {
   try {
     const id = req.params.id;
@@ -57,7 +59,6 @@ router.put('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// PATCH /api/projets/:id/statut
 router.patch('/:id/statut', async (req, res, next) => {
   try {
     const id = req.params.id;
@@ -69,7 +70,6 @@ router.patch('/:id/statut', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// DELETE /api/projets/:id
 router.delete('/:id', async (req, res, next) => {
   try {
     const id = req.params.id;

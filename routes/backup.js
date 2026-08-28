@@ -7,16 +7,14 @@ const { CATEGORIES, FORMATS } = require('../constants');
 const router = express.Router();
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 20 * 1024 * 1024 } // 20 Mo, largement suffisant pour ce format
+  limits: { fileSize: 20 * 1024 * 1024 }
 });
 
-const SHEETS = ['Cours', 'Competences', 'Cours_Competences', 'Parcours', 'Parcours_Cours', 'Projets'];
+const SHEETS = ['Cours', 'Competences', 'Cours_Competences', 'Parcours', 'Parcours_Cours', 'Projets', 'Taches'];
 
-// ===================== EXPORT =====================
-// GET /api/export
 router.get('/export', async (req, res, next) => {
   try {
-    const [coursRes, compRes, coursCompRes, parcoursRes, parcoursCoursRes, projetsRes] = await Promise.all([
+    const [coursRes, compRes, coursCompRes, parcoursRes, parcoursCoursRes, projetsRes, tachesRes] = await Promise.all([
       pool.query('SELECT id, titre, description, statut, categorie, format, niveau_maitrise FROM cours ORDER BY id'),
       pool.query('SELECT id, nom, description, statut, niveau_maitrise FROM competences ORDER BY id'),
       pool.query(`
@@ -34,7 +32,18 @@ router.get('/export', async (req, res, next) => {
         JOIN cours c ON c.id = pc.cours_id
         ORDER BY p.titre, pc.position
       `),
-      pool.query('SELECT id, titre, description, statut FROM projets ORDER BY id')
+      pool.query('SELECT id, titre, description, statut FROM projets ORDER BY id'),
+      pool.query(`
+        SELECT
+          t.id, t.titre, t.statut,
+          CASE WHEN t.cours_id IS NOT NULL THEN 'cours' WHEN t.parcours_id IS NOT NULL THEN 'parcours' WHEN t.projet_id IS NOT NULL THEN 'projet' ELSE '' END AS lien_type,
+          COALESCE(c.titre, p.titre, pj.titre, '') AS lien_titre
+        FROM taches t
+        LEFT JOIN cours c ON c.id = t.cours_id
+        LEFT JOIN parcours p ON p.id = t.parcours_id
+        LEFT JOIN projets pj ON pj.id = t.projet_id
+        ORDER BY t.id
+      `)
     ]);
 
     const workbook = new ExcelJS.Workbook();
@@ -91,6 +100,14 @@ router.get('/export', async (req, res, next) => {
       { header: 'statut', key: 'statut', width: 9 }
     ], projetsRes.rows);
 
+    addSheet('Taches', [
+      { header: 'id', key: 'id', width: 8 },
+      { header: 'titre', key: 'titre', width: 32 },
+      { header: 'statut', key: 'statut', width: 9 },
+      { header: 'lien_type', key: 'lien_type', width: 12 },
+      { header: 'lien_titre', key: 'lien_titre', width: 32 }
+    ], tachesRes.rows);
+
     const filename = `zenskills-export-${new Date().toISOString().slice(0, 10)}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -99,11 +116,10 @@ router.get('/export', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// ===================== IMPORT =====================
 function sheetToObjects(workbook, sheetName) {
   const sheet = workbook.getWorksheet(sheetName);
   if (!sheet) return null;
-  const headerRow = sheet.getRow(1).values; // tableau 1-indexé, [0] est vide
+  const headerRow = sheet.getRow(1).values;
   const headers = headerRow.slice(1).map(h => String(h ?? '').trim());
   const rows = [];
   for (let i = 2; i <= sheet.rowCount; i++) {
@@ -129,7 +145,6 @@ function validNiveau(statut, v) {
   return Number.isInteger(n) && n >= 1 && n <= 5 ? n : null;
 }
 
-// POST /api/import  (champ multipart "file")
 router.post('/import', upload.single('file'), async (req, res, next) => {
   if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu.' });
 
@@ -152,9 +167,7 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    // CASCADE supprime aussi le contenu de cours_competences et parcours_cours,
-    // qui référencent ces tables. RESTART IDENTITY repart de 1 pour les id.
-    await client.query('TRUNCATE TABLE cours, competences, parcours, projets RESTART IDENTITY CASCADE');
+    await client.query('TRUNCATE TABLE cours, competences, parcours, projets, taches RESTART IDENTITY CASCADE');
 
     const coursIdByTitre = new Map();
     for (const r of sheets.Cours) {
@@ -220,14 +233,37 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
     }
 
     let projetsCount = 0;
+    const projetIdByTitre = new Map();
     for (const r of sheets.Projets) {
       const titre = String(r.titre || '').trim();
       if (!titre) continue;
-      await client.query(
-        'INSERT INTO projets (titre, description, statut) VALUES ($1,$2,$3)',
+      const insertRes = await client.query(
+        'INSERT INTO projets (titre, description, statut) VALUES ($1,$2,$3) RETURNING id',
         [titre, r.description || '', truthy(r.statut) ? 1 : 0]
       );
+      projetIdByTitre.set(titre, insertRes.rows[0].id);
       projetsCount++;
+    }
+
+    let tachesCount = 0;
+    let liensTachesIgnores = 0;
+    for (const r of sheets.Taches) {
+      const titre = String(r.titre || '').trim();
+      if (!titre) continue;
+      const lienType = String(r.lien_type || '').trim().toLowerCase();
+      const lienTitre = String(r.lien_titre || '').trim();
+      let coursId = null, parcoursId = null, projetId = null;
+      if (lienType && lienTitre) {
+        if (lienType === 'cours') coursId = coursIdByTitre.get(lienTitre) || null;
+        else if (lienType === 'parcours') parcoursId = parcoursIdByTitre.get(lienTitre) || null;
+        else if (lienType === 'projet') projetId = projetIdByTitre.get(lienTitre) || null;
+        if (!coursId && !parcoursId && !projetId) liensTachesIgnores++;
+      }
+      await client.query(
+        'INSERT INTO taches (titre, statut, cours_id, parcours_id, projet_id) VALUES ($1,$2,$3,$4,$5)',
+        [titre, truthy(r.statut) ? 1 : 0, coursId, parcoursId, projetId]
+      );
+      tachesCount++;
     }
 
     await client.query('COMMIT');
@@ -237,8 +273,10 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
       competences: compIdByNom.size,
       parcours: parcoursIdByTitre.size,
       projets: projetsCount,
+      taches: tachesCount,
       liensCoursCompetencesIgnores,
-      liensParcoursCoursIgnores
+      liensParcoursCoursIgnores,
+      liensTachesIgnores
     });
   } catch (err) {
     await client.query('ROLLBACK');

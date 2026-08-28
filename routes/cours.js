@@ -21,7 +21,6 @@ async function attachExtras(rows) {
   }));
 }
 
-// Un niveau de maîtrise n'a de sens que sur un cours terminé.
 function normalizeNiveau(statut, niveau) {
   if (!statut) return null;
   const n = Number(niveau);
@@ -29,17 +28,17 @@ function normalizeNiveau(statut, niveau) {
   return n;
 }
 
-// GET /api/cours/categories
-router.get('/categories', (req, res) => {
-  res.json(CATEGORIES);
+router.get('/categories', (req, res) => res.json(CATEGORIES));
+router.get('/formats', (req, res) => res.json(FORMATS));
+
+// GET /api/cours/all (liste légère, utile pour les sélecteurs — ex. modale de tâche)
+router.get('/all', async (req, res, next) => {
+  try {
+    const { rows } = await pool.query('SELECT id, titre FROM cours ORDER BY LOWER(titre)');
+    res.json(rows);
+  } catch (err) { next(err); }
 });
 
-// GET /api/cours/formats
-router.get('/formats', (req, res) => {
-  res.json(FORMATS);
-});
-
-// GET /api/cours
 router.get('/', async (req, res, next) => {
   try {
     const { search = '', statut, type, competence, categorie, format, niveau, page = 1 } = req.query;
@@ -53,28 +52,14 @@ router.get('/', async (req, res, next) => {
         c.titre.toLowerCase().includes(s) || (c.description || '').toLowerCase().includes(s)
       );
     }
-
-    if (statut === '0' || statut === '1') {
-      list = list.filter(c => c.statut === Number(statut));
-    }
-
-    if (categorie) {
-      list = list.filter(c => c.categorie === categorie);
-    }
-
-    if (format) {
-      list = list.filter(c => c.format === format);
-    }
-
-    if (niveau) {
-      list = list.filter(c => c.niveau_maitrise === Number(niveau));
-    }
-
+    if (statut === '0' || statut === '1') list = list.filter(c => c.statut === Number(statut));
+    if (categorie) list = list.filter(c => c.categorie === categorie);
+    if (format) list = list.filter(c => c.format === format);
+    if (niveau) list = list.filter(c => c.niveau_maitrise === Number(niveau));
     if (competence) {
       const compId = Number(competence);
       list = list.filter(c => c.competences.some(k => k.id === compId));
     }
-
     if (type === 'Obligatoire' || type === 'Optionnel') {
       const linkRes = await pool.query('SELECT DISTINCT cours_id FROM parcours_cours WHERE type = $1', [type]);
       const idsWithType = new Set(linkRes.rows.map(r => r.cours_id));
@@ -85,7 +70,6 @@ router.get('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// GET /api/cours/:id
 router.get('/:id', async (req, res, next) => {
   try {
     const { rows } = await pool.query('SELECT * FROM cours WHERE id = $1', [req.params.id]);
@@ -95,7 +79,6 @@ router.get('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// POST /api/cours
 router.post('/', async (req, res, next) => {
   try {
     const { titre, description = '', categorie, format, statut = 0, niveau_maitrise, competences = [] } = req.body;
@@ -122,7 +105,6 @@ router.post('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// PUT /api/cours/:id
 router.put('/:id', async (req, res, next) => {
   try {
     const id = req.params.id;
@@ -153,14 +135,12 @@ router.put('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// PATCH /api/cours/:id/statut
 router.patch('/:id/statut', async (req, res, next) => {
   try {
     const id = req.params.id;
     const existing = await pool.query('SELECT * FROM cours WHERE id = $1', [id]);
     if (existing.rows.length === 0) return res.status(404).json({ error: 'Cours introuvable' });
     const finalStatut = req.body.statut ? 1 : 0;
-    // Si on décoche "terminé", on vide le niveau de maîtrise.
     const finalNiveau = finalStatut ? existing.rows[0].niveau_maitrise : null;
     await pool.query('UPDATE cours SET statut = $1, niveau_maitrise = $2 WHERE id = $3', [finalStatut, finalNiveau, id]);
     const { rows } = await pool.query('SELECT * FROM cours WHERE id = $1', [id]);
@@ -169,7 +149,6 @@ router.patch('/:id/statut', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// PATCH /api/cours/:id/niveau  (mise à jour rapide du niveau de maîtrise seul)
 router.patch('/:id/niveau', async (req, res, next) => {
   try {
     const id = req.params.id;
@@ -184,7 +163,6 @@ router.patch('/:id/niveau', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// DELETE /api/cours/:id
 router.delete('/:id', async (req, res, next) => {
   try {
     const id = req.params.id;

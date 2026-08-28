@@ -10,8 +10,7 @@ const pool = new Pool({
 });
 
 // Sur Vercel (Fluid compute), on réutilise les connexions entre requêtes plutôt que
-// d'en ouvrir une nouvelle à chaque fois. En local, ce module est absent du bundle
-// de dépendances utilisées, donc on le charge de façon défensive.
+// d'en ouvrir une nouvelle à chaque fois.
 if (process.env.VERCEL) {
   try {
     const { attachDatabasePool } = require('@vercel/functions');

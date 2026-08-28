@@ -1,8 +1,6 @@
-// Script à lancer UNE SEULE FOIS en local pour créer les tables dans Neon :
+// Script à lancer en local pour créer/mettre à jour les tables dans Neon :
 //   node migrate.js
-//
-// Utilise DATABASE_URL_UNPOOLED si disponible (recommandé pour ce type d'opération,
-// c'est la chaîne "directe" fournie par Neon), sinon retombe sur DATABASE_URL.
+// Idempotent : peut être relancé sans danger (CREATE TABLE IF NOT EXISTS).
 require('dotenv').config();
 const { Client } = require('pg');
 
@@ -63,14 +61,24 @@ CREATE TABLE IF NOT EXISTS projets (
   description TEXT DEFAULT '',
   statut INTEGER NOT NULL DEFAULT 0
 );
+
+CREATE TABLE IF NOT EXISTS taches (
+  id SERIAL PRIMARY KEY,
+  titre TEXT NOT NULL,
+  statut INTEGER NOT NULL DEFAULT 0,
+  cours_id INTEGER REFERENCES cours(id) ON DELETE SET NULL,
+  parcours_id INTEGER REFERENCES parcours(id) ON DELETE SET NULL,
+  projet_id INTEGER REFERENCES projets(id) ON DELETE SET NULL,
+  CONSTRAINT taches_un_seul_lien CHECK (num_nonnulls(cours_id, parcours_id, projet_id) <= 1)
+);
 `;
 
 (async () => {
   try {
     await client.connect();
-    console.log('Connecté à Neon. Création des tables…');
+    console.log('Connecté à Neon. Création/mise à jour des tables…');
     await client.query(SCHEMA);
-    console.log('✅ Schéma créé (ou déjà existant). Base prête.');
+    console.log('✅ Schéma prêt.');
   } catch (err) {
     console.error('❌ Erreur pendant la migration :', err.message);
     process.exitCode = 1;

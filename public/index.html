@@ -35,6 +35,9 @@
       <button class="nav-item" data-tab="projets">
         <span class="nav-dot"></span> Projets
       </button>
+      <button class="nav-item" data-tab="taches">
+        <span class="nav-dot"></span> Tâches
+      </button>
     </nav>
 
     <div class="sidebar-footer">
@@ -159,6 +162,24 @@
       </div>
       <div class="list" id="list-projets"></div>
       <div class="pagination" id="pagination-projets"></div>
+    </section>
+
+    <!-- TACHES -->
+    <section class="tab-panel" id="tab-taches">
+      <div class="panel-header">
+        <h1>Tâches</h1>
+        <button class="btn btn-primary" id="btn-new-tache">+ Nouvelle tâche</button>
+      </div>
+      <div class="toolbar">
+        <input type="text" class="search-input" id="search-taches" placeholder="Rechercher une tâche…">
+        <select id="filter-taches-statut" class="filter-select">
+          <option value="">Statut : toutes</option>
+          <option value="0">À faire</option>
+          <option value="1">Faite</option>
+        </select>
+      </div>
+      <div class="list" id="list-taches"></div>
+      <div class="pagination" id="pagination-taches"></div>
     </section>
 
   </main>

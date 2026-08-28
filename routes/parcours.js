@@ -14,18 +14,14 @@ async function attachCours(list) {
       ORDER BY pc.position ASC
     `, [p.id]);
     const obligatoires = cours.filter(c => c.type === 'Obligatoire');
-    // Règle : un parcours est terminé quand tous ses cours obligatoires sont terminés.
-    // S'il n'y a aucun cours obligatoire, la condition est vacuement vraie.
     const completed = obligatoires.every(c => c.statut === 1);
     return { ...p, cours, completed };
   }));
 }
 
-// GET /api/parcours
 router.get('/', async (req, res, next) => {
   try {
     const { search = '', statut, page = 1 } = req.query;
-
     const { rows } = await pool.query('SELECT * FROM parcours ORDER BY LOWER(titre)');
     let list = await attachCours(rows);
 
@@ -35,7 +31,6 @@ router.get('/', async (req, res, next) => {
         p.titre.toLowerCase().includes(s) || (p.description || '').toLowerCase().includes(s)
       );
     }
-
     if (statut === '0' || statut === '1') {
       const want = Number(statut) === 1;
       list = list.filter(p => p.completed === want);
@@ -45,7 +40,14 @@ router.get('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// GET /api/parcours/:id
+// GET /api/parcours/all (liste légère, utile pour les sélecteurs — ex. modale de tâche)
+router.get('/all', async (req, res, next) => {
+  try {
+    const { rows } = await pool.query('SELECT id, titre FROM parcours ORDER BY LOWER(titre)');
+    res.json(rows);
+  } catch (err) { next(err); }
+});
+
 router.get('/:id', async (req, res, next) => {
   try {
     const { rows } = await pool.query('SELECT * FROM parcours WHERE id = $1', [req.params.id]);
@@ -69,7 +71,6 @@ async function replaceCoursList(parcoursId, coursList) {
   }
 }
 
-// POST /api/parcours
 router.post('/', async (req, res, next) => {
   try {
     const { titre, description = '', cours = [] } = req.body;
@@ -88,7 +89,6 @@ router.post('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// PUT /api/parcours/:id  (met à jour titre/description + liste ordonnée de cours)
 router.put('/:id', async (req, res, next) => {
   try {
     const id = req.params.id;
@@ -107,14 +107,13 @@ router.put('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// PUT /api/parcours/:id/ordre  (réordonnancement par drag and drop uniquement)
 router.put('/:id/ordre', async (req, res, next) => {
   try {
     const id = req.params.id;
     const existing = await pool.query('SELECT * FROM parcours WHERE id = $1', [id]);
     if (existing.rows.length === 0) return res.status(404).json({ error: 'Parcours introuvable' });
 
-    const { cours = [] } = req.body; // [{cours_id, type, position}]
+    const { cours = [] } = req.body;
     await replaceCoursList(id, cours);
 
     const { rows } = await pool.query('SELECT * FROM parcours WHERE id = $1', [id]);
@@ -123,7 +122,6 @@ router.put('/:id/ordre', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// DELETE /api/parcours/:id
 router.delete('/:id', async (req, res, next) => {
   try {
     const id = req.params.id;
