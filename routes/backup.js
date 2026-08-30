@@ -14,36 +14,40 @@ const SHEETS = ['Cours', 'Competences', 'Cours_Competences', 'Parcours', 'Parcou
 
 router.get('/export', async (req, res, next) => {
   try {
+    const userId = req.userId;
     const [coursRes, compRes, coursCompRes, parcoursRes, parcoursCoursRes, projetsRes, tachesRes] = await Promise.all([
-      pool.query('SELECT id, titre, description, statut, categorie, format, niveau_maitrise FROM cours ORDER BY id'),
-      pool.query('SELECT id, nom, description, statut, niveau_maitrise FROM competences ORDER BY id'),
+      pool.query('SELECT id, titre, description, statut, categorie, format, niveau_maitrise FROM cours WHERE user_id = $1 ORDER BY id', [userId]),
+      pool.query('SELECT id, nom, description, statut, niveau_maitrise FROM competences WHERE user_id = $1 ORDER BY id', [userId]),
       pool.query(`
         SELECT c.titre AS cours_titre, k.nom AS competence_nom
         FROM cours_competences cc
         JOIN cours c ON c.id = cc.cours_id
         JOIN competences k ON k.id = cc.competence_id
+        WHERE c.user_id = $1 AND k.user_id = $1
         ORDER BY c.titre, k.nom
-      `),
-      pool.query('SELECT id, titre, description FROM parcours ORDER BY id'),
+      `, [userId]),
+      pool.query('SELECT id, titre, description FROM parcours WHERE user_id = $1 ORDER BY id', [userId]),
       pool.query(`
         SELECT p.titre AS parcours_titre, c.titre AS cours_titre, pc.type, pc.position
         FROM parcours_cours pc
         JOIN parcours p ON p.id = pc.parcours_id
         JOIN cours c ON c.id = pc.cours_id
+        WHERE p.user_id = $1 AND c.user_id = $1
         ORDER BY p.titre, pc.position
-      `),
-      pool.query('SELECT id, titre, description, statut FROM projets ORDER BY id'),
+      `, [userId]),
+      pool.query('SELECT id, titre, description, statut FROM projets WHERE user_id = $1 ORDER BY id', [userId]),
       pool.query(`
         SELECT
-          t.id, t.titre, t.statut,
+          t.id, t.titre, t.description, t.statut,
           CASE WHEN t.cours_id IS NOT NULL THEN 'cours' WHEN t.parcours_id IS NOT NULL THEN 'parcours' WHEN t.projet_id IS NOT NULL THEN 'projet' ELSE '' END AS lien_type,
           COALESCE(c.titre, p.titre, pj.titre, '') AS lien_titre
         FROM taches t
         LEFT JOIN cours c ON c.id = t.cours_id
         LEFT JOIN parcours p ON p.id = t.parcours_id
         LEFT JOIN projets pj ON pj.id = t.projet_id
+        WHERE t.user_id = $1
         ORDER BY t.id
-      `)
+      `, [userId])
     ]);
 
     const workbook = new ExcelJS.Workbook();
@@ -103,6 +107,7 @@ router.get('/export', async (req, res, next) => {
     addSheet('Taches', [
       { header: 'id', key: 'id', width: 8 },
       { header: 'titre', key: 'titre', width: 32 },
+      { header: 'description', key: 'description', width: 40 },
       { header: 'statut', key: 'statut', width: 9 },
       { header: 'lien_type', key: 'lien_type', width: 12 },
       { header: 'lien_titre', key: 'lien_titre', width: 32 }
@@ -164,10 +169,16 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
     sheets[name] = rows;
   }
 
+  const userId = req.userId;
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    await client.query('TRUNCATE TABLE cours, competences, parcours, projets, taches RESTART IDENTITY CASCADE');
+    // Ne supprime QUE les données de l'utilisateur connecté — jamais celles des autres comptes.
+    await client.query('DELETE FROM taches WHERE user_id = $1', [userId]);
+    await client.query('DELETE FROM cours WHERE user_id = $1', [userId]);
+    await client.query('DELETE FROM competences WHERE user_id = $1', [userId]);
+    await client.query('DELETE FROM parcours WHERE user_id = $1', [userId]);
+    await client.query('DELETE FROM projets WHERE user_id = $1', [userId]);
 
     const coursIdByTitre = new Map();
     for (const r of sheets.Cours) {
@@ -178,8 +189,8 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
       const format = FORMATS.includes(r.format) ? r.format : FORMATS[0];
       const niveau = validNiveau(statut, r.niveau_maitrise);
       const insertRes = await client.query(
-        'INSERT INTO cours (titre, description, statut, categorie, format, niveau_maitrise) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id',
-        [titre, r.description || '', statut, categorie, format, niveau]
+        'INSERT INTO cours (user_id, titre, description, statut, categorie, format, niveau_maitrise) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id',
+        [userId, titre, r.description || '', statut, categorie, format, niveau]
       );
       coursIdByTitre.set(titre, insertRes.rows[0].id);
     }
@@ -191,8 +202,8 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
       const statut = truthy(r.statut) ? 1 : 0;
       const niveau = validNiveau(statut, r.niveau_maitrise);
       const insertRes = await client.query(
-        'INSERT INTO competences (nom, description, statut, niveau_maitrise) VALUES ($1,$2,$3,$4) RETURNING id',
-        [nom, r.description || '', statut, niveau]
+        'INSERT INTO competences (user_id, nom, description, statut, niveau_maitrise) VALUES ($1,$2,$3,$4,$5) RETURNING id',
+        [userId, nom, r.description || '', statut, niveau]
       );
       compIdByNom.set(nom, insertRes.rows[0].id);
     }
@@ -213,8 +224,8 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
       const titre = String(r.titre || '').trim();
       if (!titre) continue;
       const insertRes = await client.query(
-        'INSERT INTO parcours (titre, description) VALUES ($1,$2) RETURNING id',
-        [titre, r.description || '']
+        'INSERT INTO parcours (user_id, titre, description) VALUES ($1,$2,$3) RETURNING id',
+        [userId, titre, r.description || '']
       );
       parcoursIdByTitre.set(titre, insertRes.rows[0].id);
     }
@@ -232,14 +243,14 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
       );
     }
 
-    let projetsCount = 0;
     const projetIdByTitre = new Map();
+    let projetsCount = 0;
     for (const r of sheets.Projets) {
       const titre = String(r.titre || '').trim();
       if (!titre) continue;
       const insertRes = await client.query(
-        'INSERT INTO projets (titre, description, statut) VALUES ($1,$2,$3) RETURNING id',
-        [titre, r.description || '', truthy(r.statut) ? 1 : 0]
+        'INSERT INTO projets (user_id, titre, description, statut) VALUES ($1,$2,$3,$4) RETURNING id',
+        [userId, titre, r.description || '', truthy(r.statut) ? 1 : 0]
       );
       projetIdByTitre.set(titre, insertRes.rows[0].id);
       projetsCount++;
@@ -260,8 +271,8 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
         if (!coursId && !parcoursId && !projetId) liensTachesIgnores++;
       }
       await client.query(
-        'INSERT INTO taches (titre, statut, cours_id, parcours_id, projet_id) VALUES ($1,$2,$3,$4,$5)',
-        [titre, truthy(r.statut) ? 1 : 0, coursId, parcoursId, projetId]
+        'INSERT INTO taches (user_id, titre, description, statut, cours_id, parcours_id, projet_id) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+        [userId, titre, r.description || '', truthy(r.statut) ? 1 : 0, coursId, parcoursId, projetId]
       );
       tachesCount++;
     }

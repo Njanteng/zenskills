@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Connexion — ZenSkills</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="login-page">
+
+<div class="login-card">
+  <div class="brand login-brand">
+    <span class="brand-mark"></span>
+    <div class="brand-text">
+      <div class="brand-name">ZenSkills</div>
+      <div class="brand-tagline">If you don't use it, you will lose it</div>
+    </div>
+  </div>
+
+  <form id="form-login">
+    <div class="field">
+      <label>Email</label>
+      <input type="email" name="email" required autocomplete="username" autofocus>
+    </div>
+    <div class="field">
+      <label>Mot de passe</label>
+      <input type="password" name="password" required autocomplete="current-password">
+    </div>
+    <div class="login-error" id="login-error"></div>
+    <button type="submit" class="btn btn-primary login-submit">Se connecter</button>
+  </form>
+</div>
+
+<script>
+document.getElementById('form-login').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errorEl = document.getElementById('login-error');
+  errorEl.textContent = '';
+
+  const fd = new FormData(e.target);
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: fd.get('email'), password: fd.get('password') })
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || 'Échec de la connexion.');
+    }
+    window.location.href = '/';
+  } catch (err) {
+    errorEl.textContent = err.message;
+  }
+});
+</script>
+
+</body>
+</html>

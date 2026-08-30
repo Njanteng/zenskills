@@ -11,11 +11,12 @@ function ratio(rows, statutKey = 'statut') {
 
 router.get('/', async (req, res, next) => {
   try {
+    const userId = req.userId;
     const [coursRes, competencesRes, projetsRes, parcoursRes] = await Promise.all([
-      pool.query('SELECT * FROM cours'),
-      pool.query('SELECT * FROM competences ORDER BY LOWER(nom)'),
-      pool.query('SELECT * FROM projets'),
-      pool.query('SELECT * FROM parcours ORDER BY LOWER(titre)')
+      pool.query('SELECT * FROM cours WHERE user_id = $1', [userId]),
+      pool.query('SELECT * FROM competences WHERE user_id = $1 ORDER BY LOWER(nom)', [userId]),
+      pool.query('SELECT * FROM projets WHERE user_id = $1', [userId]),
+      pool.query('SELECT * FROM parcours WHERE user_id = $1 ORDER BY LOWER(titre)', [userId])
     ]);
 
     const parcoursList = await Promise.all(parcoursRes.rows.map(async p => {

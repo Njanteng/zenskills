@@ -22,7 +22,7 @@ async function attachCours(list) {
 router.get('/', async (req, res, next) => {
   try {
     const { search = '', statut, page = 1 } = req.query;
-    const { rows } = await pool.query('SELECT * FROM parcours ORDER BY LOWER(titre)');
+    const { rows } = await pool.query('SELECT * FROM parcours WHERE user_id = $1 ORDER BY LOWER(titre)', [req.userId]);
     let list = await attachCours(rows);
 
     if (search.trim()) {
@@ -40,27 +40,39 @@ router.get('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// GET /api/parcours/all (liste légère, utile pour les sélecteurs — ex. modale de tâche)
 router.get('/all', async (req, res, next) => {
   try {
-    const { rows } = await pool.query('SELECT id, titre FROM parcours ORDER BY LOWER(titre)');
+    const { rows } = await pool.query('SELECT id, titre FROM parcours WHERE user_id = $1 ORDER BY LOWER(titre)', [req.userId]);
     res.json(rows);
   } catch (err) { next(err); }
 });
 
 router.get('/:id', async (req, res, next) => {
   try {
-    const { rows } = await pool.query('SELECT * FROM parcours WHERE id = $1', [req.params.id]);
+    const { rows } = await pool.query('SELECT * FROM parcours WHERE id = $1 AND user_id = $2', [req.params.id, req.userId]);
     if (rows.length === 0) return res.status(404).json({ error: 'Parcours introuvable' });
     const [withCours] = await attachCours(rows);
     res.json(withCours);
   } catch (err) { next(err); }
 });
 
-async function replaceCoursList(parcoursId, coursList) {
+// Ne conserve que les cours de la liste qui appartiennent bien à l'utilisateur.
+async function filterOwnedCoursItems(coursList, userId) {
+  if (!coursList.length) return [];
+  const ids = coursList.map(item => Number(item.cours_id));
+  const { rows } = await pool.query(
+    'SELECT id FROM cours WHERE user_id = $1 AND id = ANY($2::int[])',
+    [userId, ids]
+  );
+  const ownedIds = new Set(rows.map(r => r.id));
+  return coursList.filter(item => ownedIds.has(Number(item.cours_id)));
+}
+
+async function replaceCoursList(parcoursId, coursList, userId) {
+  const owned = await filterOwnedCoursItems(coursList, userId);
   await pool.query('DELETE FROM parcours_cours WHERE parcours_id = $1', [parcoursId]);
   let index = 0;
-  for (const item of coursList) {
+  for (const item of owned) {
     const type = item.type === 'Optionnel' ? 'Optionnel' : 'Obligatoire';
     const position = Number.isInteger(item.position) ? item.position : index;
     await pool.query(
@@ -77,11 +89,11 @@ router.post('/', async (req, res, next) => {
     if (!titre || !titre.trim()) return res.status(400).json({ error: 'Le titre est requis' });
 
     const insertRes = await pool.query(
-      'INSERT INTO parcours (titre, description) VALUES ($1, $2) RETURNING id',
-      [titre.trim(), description]
+      'INSERT INTO parcours (user_id, titre, description) VALUES ($1, $2, $3) RETURNING id',
+      [req.userId, titre.trim(), description]
     );
     const parcoursId = insertRes.rows[0].id;
-    await replaceCoursList(parcoursId, cours);
+    await replaceCoursList(parcoursId, cours, req.userId);
 
     const { rows } = await pool.query('SELECT * FROM parcours WHERE id = $1', [parcoursId]);
     const [withCours] = await attachCours(rows);
@@ -92,14 +104,14 @@ router.post('/', async (req, res, next) => {
 router.put('/:id', async (req, res, next) => {
   try {
     const id = req.params.id;
-    const existing = await pool.query('SELECT * FROM parcours WHERE id = $1', [id]);
+    const existing = await pool.query('SELECT * FROM parcours WHERE id = $1 AND user_id = $2', [id, req.userId]);
     if (existing.rows.length === 0) return res.status(404).json({ error: 'Parcours introuvable' });
 
     const { titre, description = '', cours = [] } = req.body;
     if (!titre || !titre.trim()) return res.status(400).json({ error: 'Le titre est requis' });
 
-    await pool.query('UPDATE parcours SET titre = $1, description = $2 WHERE id = $3', [titre.trim(), description, id]);
-    await replaceCoursList(id, cours);
+    await pool.query('UPDATE parcours SET titre = $1, description = $2 WHERE id = $3 AND user_id = $4', [titre.trim(), description, id, req.userId]);
+    await replaceCoursList(id, cours, req.userId);
 
     const { rows } = await pool.query('SELECT * FROM parcours WHERE id = $1', [id]);
     const [withCours] = await attachCours(rows);
@@ -110,11 +122,11 @@ router.put('/:id', async (req, res, next) => {
 router.put('/:id/ordre', async (req, res, next) => {
   try {
     const id = req.params.id;
-    const existing = await pool.query('SELECT * FROM parcours WHERE id = $1', [id]);
+    const existing = await pool.query('SELECT * FROM parcours WHERE id = $1 AND user_id = $2', [id, req.userId]);
     if (existing.rows.length === 0) return res.status(404).json({ error: 'Parcours introuvable' });
 
     const { cours = [] } = req.body;
-    await replaceCoursList(id, cours);
+    await replaceCoursList(id, cours, req.userId);
 
     const { rows } = await pool.query('SELECT * FROM parcours WHERE id = $1', [id]);
     const [withCours] = await attachCours(rows);
@@ -125,9 +137,9 @@ router.put('/:id/ordre', async (req, res, next) => {
 router.delete('/:id', async (req, res, next) => {
   try {
     const id = req.params.id;
-    const existing = await pool.query('SELECT * FROM parcours WHERE id = $1', [id]);
+    const existing = await pool.query('SELECT * FROM parcours WHERE id = $1 AND user_id = $2', [id, req.userId]);
     if (existing.rows.length === 0) return res.status(404).json({ error: 'Parcours introuvable' });
-    await pool.query('DELETE FROM parcours WHERE id = $1', [id]);
+    await pool.query('DELETE FROM parcours WHERE id = $1 AND user_id = $2', [id, req.userId]);
     res.status(204).end();
   } catch (err) { next(err); }
 });

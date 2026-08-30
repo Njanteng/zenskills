@@ -4,6 +4,10 @@ async function api(path, opts = {}) {
     headers: { 'Content-Type': 'application/json' },
     ...opts
   });
+  if (res.status === 401) {
+    window.location.href = '/login.html';
+    return new Promise(() => {}); // stoppe l'exécution du code appelant, la redirection est en cours
+  }
   if (!res.ok) {
     let msg = 'Une erreur est survenue';
     try { const body = await res.json(); msg = body.error || msg; } catch (e) {}
@@ -940,6 +944,7 @@ function renderTachesList(res) {
         <input type="checkbox" class="list-item-checkbox tache-toggle" data-id="${t.id}" ${t.statut === 1 ? 'checked' : ''}>
         <div class="list-item-main">
           <div class="list-item-title ${t.statut === 1 ? 'done' : ''}">${esc(t.titre)}</div>
+          ${t.description ? `<div class="list-item-desc">${esc(t.description)}</div>` : ''}
           ${t.lien ? `<div class="tag-row"><span class="tag lien">${esc(lienLabel(t.lien))}</span></div>` : ''}
         </div>
         <div class="list-item-actions">
@@ -1015,6 +1020,10 @@ async function openTacheModal(id) {
         <input type="text" name="titre" value="${esc(tache?.titre || '')}" required>
       </div>
       <div class="field">
+        <label>Description</label>
+        <textarea name="description">${esc(tache?.description || '')}</textarea>
+      </div>
+      <div class="field">
         <label><input type="checkbox" name="statut" ${tache?.statut === 1 ? 'checked' : ''}> Marquer comme faite</label>
       </div>
       <div class="field-row">
@@ -1070,6 +1079,7 @@ async function openTacheModal(id) {
     }
     const payload = {
       titre: fd.get('titre'),
+      description: fd.get('description'),
       statut: fd.get('statut') ? 1 : 0,
       lien_type: lienType,
       lien_id: lienId ? Number(lienId) : null
@@ -1145,9 +1155,22 @@ function debounce(fn, delay = 300) {
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), delay); };
 }
 
+// ===================== Auth (session, déconnexion) =====================
+document.getElementById('btn-logout').addEventListener('click', async () => {
+  try {
+    await fetch('/api/auth/logout', { method: 'POST' });
+  } finally {
+    window.location.href = '/login.html';
+  }
+});
+
 // ===================== Init =====================
 (async function init() {
   try {
+    const me = await api('/api/auth/me');
+    if (!me) return; // redirection vers /login.html déjà en cours
+    document.getElementById('sidebar-user').textContent = me.email;
+
     await loadReferenceData();
     await refreshAllCoursCache();
     await loadDashboard();
