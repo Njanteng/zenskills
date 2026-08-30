@@ -35,7 +35,8 @@ CREATE TABLE IF NOT EXISTS cours (
   statut INTEGER NOT NULL DEFAULT 0,
   categorie TEXT NOT NULL,
   format TEXT NOT NULL DEFAULT 'VIDEO',
-  niveau_maitrise INTEGER
+  niveau_maitrise INTEGER,
+  derniere_revision DATE
 );
 
 CREATE TABLE IF NOT EXISTS competences (
@@ -44,7 +45,8 @@ CREATE TABLE IF NOT EXISTS competences (
   nom TEXT NOT NULL,
   description TEXT DEFAULT '',
   statut INTEGER NOT NULL DEFAULT 0,
-  niveau_maitrise INTEGER
+  niveau_maitrise INTEGER,
+  derniere_revision DATE
 );
 
 CREATE TABLE IF NOT EXISTS cours_competences (
@@ -95,6 +97,8 @@ ALTER TABLE parcours ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(i
 ALTER TABLE projets ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;
 ALTER TABLE taches ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;
 ALTER TABLE taches ADD COLUMN IF NOT EXISTS description TEXT DEFAULT '';
+ALTER TABLE cours ADD COLUMN IF NOT EXISTS derniere_revision DATE;
+ALTER TABLE competences ADD COLUMN IF NOT EXISTS derniere_revision DATE;
 `;
 
 (async () => {

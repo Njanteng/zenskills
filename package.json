@@ -1,6 +1,5 @@
 {
   "name": "zenskills",
-  "type": "commonjs",
   "version": "3.0.0",
   "description": "ZenSkills - suivi de cours, parcours, compétences, projets et tâches (multi-comptes)",
   "main": "server.js",

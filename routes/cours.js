@@ -178,6 +178,20 @@ router.patch('/:id/niveau', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// PATCH /api/cours/:id/revision — marque le cours comme révisé aujourd'hui.
+router.patch('/:id/revision', async (req, res, next) => {
+  try {
+    const id = req.params.id;
+    const existing = await pool.query('SELECT * FROM cours WHERE id = $1 AND user_id = $2', [id, req.userId]);
+    if (existing.rows.length === 0) return res.status(404).json({ error: 'Cours introuvable' });
+    if (!existing.rows[0].statut) return res.status(400).json({ error: 'Le cours doit être terminé pour enregistrer une révision' });
+    await pool.query('UPDATE cours SET derniere_revision = CURRENT_DATE WHERE id = $1 AND user_id = $2', [id, req.userId]);
+    const { rows } = await pool.query('SELECT * FROM cours WHERE id = $1', [id]);
+    const [withExtras] = await attachExtras(rows, req.userId);
+    res.json(withExtras);
+  } catch (err) { next(err); }
+});
+
 router.delete('/:id', async (req, res, next) => {
   try {
     const id = req.params.id;

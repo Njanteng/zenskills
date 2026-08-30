@@ -277,6 +277,37 @@ button, input, select, textarea {
   letter-spacing: 1px;
 }
 
+/* Dashboard "À revoir" */
+.dashboard-a-revoir-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.ar-item {
+  background: var(--bg-raised);
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--gold);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ar-main { flex: 1; min-width: 0; }
+
+.ar-title { font-weight: 600; }
+
+.ar-meta {
+  font-size: 12px;
+  color: var(--text-faint);
+  margin-top: 2px;
+}
+
+.ar-meta .tag { margin-right: 6px; }
+
 /* Dashboard parcours grid */
 .dashboard-parcours-list {
   display: grid;
@@ -406,6 +437,12 @@ button, input, select, textarea {
 
 .btn:hover { background: var(--bg-hover); }
 
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 .btn-primary {
   background: var(--accent);
   border-color: var(--accent);
@@ -472,6 +509,45 @@ button, input, select, textarea {
   padding: 30px 0;
   text-align: center;
   font-style: italic;
+}
+
+/* Loading spinner */
+.spinner-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 36px 0;
+}
+
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.spinner.spinner-sm {
+  width: 14px;
+  height: 14px;
+  border-width: 2px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Skeleton blocks (dashboard stats while loading) */
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-hover) 25%, var(--border) 50%, var(--bg-hover) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+  border-radius: var(--radius);
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 .list-item {
@@ -683,12 +759,18 @@ button, input, select, textarea {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 8px 10px;
-  cursor: grab;
 }
 
-.dd-item.dragging { opacity: 0.4; }
+.dd-item.dragging { opacity: 0.5; }
 
-.dd-handle { color: var(--text-faint); }
+.dd-handle {
+  color: var(--text-faint);
+  cursor: grab;
+  padding: 4px 2px;
+  font-size: 16px;
+}
+
+.dd-item.dragging .dd-handle { cursor: grabbing; }
 
 .dd-title { flex: 1; font-size: 13px; }
 

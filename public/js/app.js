@@ -37,6 +37,37 @@ function starsDisplay(n) {
   return '★'.repeat(n) + '☆'.repeat(5 - n);
 }
 
+// Formate la date de dernière révision en texte relatif court.
+function revisionLabel(dateStr) {
+  if (!dateStr) return 'Jamais révisé';
+  const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
+  if (days <= 0) return "Révisé aujourd'hui";
+  if (days === 1) return 'Révisé hier';
+  if (days < 30) return `Révisé il y a ${days} jours`;
+  const months = Math.round(days / 30);
+  if (months < 12) return `Révisé il y a ${months} mois`;
+  const years = Math.round(months / 12);
+  return `Révisé il y a ${years} an${years > 1 ? 's' : ''}`;
+}
+
+function showSpinner(containerId) {
+  const el = document.getElementById(containerId);
+  if (el) el.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div></div>';
+}
+
+// Désactive un bouton de soumission le temps de la requête, avec un libellé "en cours".
+async function withButtonLoading(button, loadingLabel, task) {
+  const originalLabel = button.textContent;
+  button.disabled = true;
+  button.innerHTML = `<span class="spinner spinner-sm" style="display:inline-block;vertical-align:-2px;margin-right:6px"></span>${loadingLabel}`;
+  try {
+    await task();
+  } finally {
+    button.disabled = false;
+    button.textContent = originalLabel;
+  }
+}
+
 // ===================== State =====================
 const state = {
   categories: [],
@@ -144,6 +175,15 @@ async function refreshAllProjetsCache() {
 
 // ===================== Dashboard =====================
 async function loadDashboard() {
+  document.getElementById('stats-grid').innerHTML = Array(4).fill(`
+    <div class="stat-card">
+      <div class="skeleton" style="height:11px;width:60px;margin-bottom:12px"></div>
+      <div class="skeleton" style="height:26px;width:80px;margin-bottom:12px"></div>
+      <div class="skeleton" style="height:3px;width:100%"></div>
+    </div>`).join('');
+  showSpinner('dashboard-competences');
+  showSpinner('dashboard-parcours');
+
   const data = await api('/api/dashboard');
 
   const cards = [
@@ -162,6 +202,38 @@ async function loadDashboard() {
         <div class="stat-bar"><div class="stat-bar-fill" style="width:${pct}%"></div></div>
       </div>`;
   }).join('');
+
+  const arHeader = document.getElementById('a-revoir-header');
+  const arContainer = document.getElementById('dashboard-a-revoir');
+  if (!data.aRevoir || data.aRevoir.length === 0) {
+    arHeader.style.display = 'none';
+    arContainer.innerHTML = '';
+  } else {
+    arHeader.style.display = '';
+    arContainer.innerHTML = data.aRevoir.map(item => `
+      <div class="ar-item">
+        <div class="ar-main">
+          <div class="ar-title">${esc(item.nom)}</div>
+          <div class="ar-meta">
+            <span class="tag ${item.type === 'cours' ? 'format' : 'competence'}">${item.type === 'cours' ? 'Cours' : 'Compétence'}</span>
+            ${revisionLabel(item.derniere_revision)}
+          </div>
+        </div>
+        <button class="btn btn-sm btn-reviser" data-type="${item.type}" data-id="${item.id}">Réviser aujourd'hui</button>
+      </div>
+    `).join('');
+
+    arContainer.querySelectorAll('.btn-reviser').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const endpoint = btn.dataset.type === 'cours' ? '/api/cours' : '/api/competences';
+        try {
+          await api(`${endpoint}/${btn.dataset.id}/revision`, { method: 'PATCH' });
+          toast('Révision enregistrée.');
+          loadDashboard();
+        } catch (err) { toast(err.message, true); }
+      });
+    });
+  }
 
   const compContainer = document.getElementById('dashboard-competences');
   compContainer.innerHTML = data.competencesAcquises.length === 0
@@ -244,6 +316,7 @@ function coursQueryString() {
 }
 
 async function loadCours() {
+  showSpinner('list-cours');
   const res = await api(`/api/cours?${coursQueryString()}`);
   renderCoursList(res);
 }
@@ -264,10 +337,12 @@ function renderCoursList(res) {
             <span class="tag format">${esc(c.format)}</span>
             ${c.niveau_maitrise ? `<span class="tag niveau">${starsDisplay(c.niveau_maitrise)}</span>` : ''}
             <span class="tag nb-parcours">${c.nb_parcours} parcours</span>
+            ${c.statut === 1 ? `<span class="tag">${revisionLabel(c.derniere_revision)}</span>` : ''}
             ${c.competences.map(k => `<span class="tag competence">${esc(k.nom)}</span>`).join('')}
           </div>
         </div>
         <div class="list-item-actions">
+          ${c.statut === 1 ? `<button class="btn-text btn-reviser-cours" data-id="${c.id}">Réviser</button>` : ''}
           <button class="btn-text btn-edit-cours" data-id="${c.id}">Modifier</button>
           <button class="btn-text btn-delete-cours" data-id="${c.id}" style="color:var(--danger)">Supprimer</button>
         </div>
@@ -283,6 +358,15 @@ function renderCoursList(res) {
           method: 'PATCH',
           body: JSON.stringify({ statut: cb.checked ? 1 : 0 })
         });
+        loadCours();
+      } catch (err) { toast(err.message, true); }
+    });
+  });
+  list.querySelectorAll('.btn-reviser-cours').forEach(b => {
+    b.addEventListener('click', async () => {
+      try {
+        await api(`/api/cours/${b.dataset.id}/revision`, { method: 'PATCH' });
+        toast('Révision enregistrée.');
         loadCours();
       } catch (err) { toast(err.message, true); }
     });
@@ -324,6 +408,7 @@ async function deleteCours(id) {
 
 async function openCoursModal(id) {
   const editing = !!id;
+  if (editing) openModal('<div class="spinner-wrap"><div class="spinner"></div></div>');
   const cours = editing ? await api(`/api/cours/${id}`) : null;
   const selectedCompIds = new Set((cours?.competences || []).map(c => c.id));
   const initialNiveau = cours?.niveau_maitrise || 0;
@@ -410,19 +495,22 @@ async function openCoursModal(id) {
       niveau_maitrise: fd.get('statut') ? niveauValue : null,
       competences: fd.getAll('competence').map(Number)
     };
-    try {
-      if (editing) {
-        await api(`/api/cours/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
-        toast('Cours mis à jour.');
-      } else {
-        await api('/api/cours', { method: 'POST', body: JSON.stringify(payload) });
-        toast('Cours créé.');
-      }
-      closeModal();
-      await refreshAllCoursCache();
-      await refreshAllCompetencesCache();
-      loadCours();
-    } catch (err) { toast(err.message, true); }
+    const submitBtn = form.querySelector('.btn-primary');
+    await withButtonLoading(submitBtn, editing ? 'Enregistrement…' : 'Création…', async () => {
+      try {
+        if (editing) {
+          await api(`/api/cours/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+          toast('Cours mis à jour.');
+        } else {
+          await api('/api/cours', { method: 'POST', body: JSON.stringify(payload) });
+          toast('Cours créé.');
+        }
+        closeModal();
+        await refreshAllCoursCache();
+        await refreshAllCompetencesCache();
+        loadCours();
+      } catch (err) { toast(err.message, true); }
+    });
   });
 }
 
@@ -460,6 +548,7 @@ function parcoursQueryString() {
 }
 
 async function loadParcours() {
+  showSpinner('list-parcours');
   const res = await api(`/api/parcours?${parcoursQueryString()}`);
   renderParcoursList(res);
 }
@@ -504,6 +593,7 @@ let ddState = []; // [{cours_id, titre, type}]
 
 async function openParcoursModal(id) {
   const editing = !!id;
+  openModal('<div class="spinner-wrap"><div class="spinner"></div></div>');
   const parcours = editing ? await api(`/api/parcours/${id}`) : null;
   await refreshAllCoursCache();
 
@@ -558,17 +648,20 @@ async function openParcoursModal(id) {
       description: fd.get('description'),
       cours: ddState.map((d, i) => ({ cours_id: d.cours_id, type: d.type, position: i }))
     };
-    try {
-      if (editing) {
-        await api(`/api/parcours/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
-        toast('Parcours mis à jour.');
-      } else {
-        await api('/api/parcours', { method: 'POST', body: JSON.stringify(payload) });
-        toast('Parcours créé.');
-      }
-      closeModal();
-      loadParcours();
-    } catch (err) { toast(err.message, true); }
+    const submitBtn = e.target.querySelector('.btn-primary');
+    await withButtonLoading(submitBtn, editing ? 'Enregistrement…' : 'Création…', async () => {
+      try {
+        if (editing) {
+          await api(`/api/parcours/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+          toast('Parcours mis à jour.');
+        } else {
+          await api('/api/parcours', { method: 'POST', body: JSON.stringify(payload) });
+          toast('Parcours créé.');
+        }
+        closeModal();
+        loadParcours();
+      } catch (err) { toast(err.message, true); }
+    });
   });
 }
 
@@ -588,7 +681,7 @@ function renderDDList() {
     return;
   }
   container.innerHTML = ddState.map((d, i) => `
-    <div class="dd-item" draggable="true" data-index="${i}">
+    <div class="dd-item" data-index="${i}">
       <span class="dd-handle">⠿</span>
       <span class="dd-title">${esc(d.titre)}</span>
       <select class="dd-type-select" data-index="${i}">
@@ -610,22 +703,48 @@ function renderDDList() {
     });
   });
 
-  let dragIndex = null;
-  container.querySelectorAll('.dd-item').forEach(item => {
-    item.addEventListener('dragstart', () => {
-      dragIndex = Number(item.dataset.index);
-      item.classList.add('dragging');
+  attachDragHandlers(container);
+}
+
+// Réordonnancement par glisser-déposer, via Pointer Events (souris + tactile + stylet,
+// contrairement à l'API HTML5 Drag and Drop qui ne fonctionne pas sur écran tactile).
+function attachDragHandlers(container) {
+  let draggingEl = null;
+
+  container.querySelectorAll('.dd-handle').forEach(handle => {
+    handle.style.touchAction = 'none'; // empêche le scroll de la page pendant le geste
+
+    handle.addEventListener('pointerdown', e => {
+      draggingEl = handle.closest('.dd-item');
+      draggingEl.classList.add('dragging');
+      handle.setPointerCapture(e.pointerId);
     });
-    item.addEventListener('dragend', () => item.classList.remove('dragging'));
-    item.addEventListener('dragover', e => e.preventDefault());
-    item.addEventListener('drop', () => {
-      const dropIndex = Number(item.dataset.index);
-      if (dragIndex === null || dragIndex === dropIndex) return;
-      const [moved] = ddState.splice(dragIndex, 1);
-      ddState.splice(dropIndex, 0, moved);
-      dragIndex = null;
-      renderDDList();
+
+    handle.addEventListener('pointermove', e => {
+      if (!draggingEl) return;
+      const items = [...container.querySelectorAll('.dd-item')].filter(item => item !== draggingEl);
+      const afterElement = items.find(item => {
+        const rect = item.getBoundingClientRect();
+        return e.clientY < rect.top + rect.height / 2;
+      });
+      if (afterElement) {
+        container.insertBefore(draggingEl, afterElement);
+      } else {
+        container.appendChild(draggingEl);
+      }
     });
+
+    const finishDrag = () => {
+      if (!draggingEl) return;
+      draggingEl.classList.remove('dragging');
+      const newOrder = [...container.querySelectorAll('.dd-item')].map(item => ddState[Number(item.dataset.index)]);
+      ddState = newOrder;
+      draggingEl = null;
+      renderDDList(); // ré-attribue des data-index propres et ré-attache les écouteurs
+    };
+
+    handle.addEventListener('pointerup', finishDrag);
+    handle.addEventListener('pointercancel', finishDrag);
   });
 }
 
@@ -648,6 +767,7 @@ function competencesQueryString() {
 }
 
 async function loadCompetences() {
+  showSpinner('list-competences');
   if (state.allCours.length === 0) await refreshAllCoursCache();
   const res = await api(`/api/competences?${competencesQueryString()}`);
   renderCompetencesList(res);
@@ -666,10 +786,12 @@ function renderCompetencesList(res) {
           ${k.description ? `<div class="list-item-desc">${esc(k.description)}</div>` : ''}
           <div class="tag-row">
             ${k.niveau_maitrise ? `<span class="tag niveau">${starsDisplay(k.niveau_maitrise)}</span>` : ''}
+            ${k.statut === 1 ? `<span class="tag">${revisionLabel(k.derniere_revision)}</span>` : ''}
             ${k.cours.map(c => `<span class="tag">${esc(c.titre)}</span>`).join('') || '<span class="tag">Aucun cours associé</span>'}
           </div>
         </div>
         <div class="list-item-actions">
+          ${k.statut === 1 ? `<button class="btn-text btn-reviser-competence" data-id="${k.id}">Réviser</button>` : ''}
           <button class="btn-text btn-edit-competence" data-id="${k.id}">Modifier</button>
           <button class="btn-text btn-delete-competence" data-id="${k.id}" style="color:var(--danger)">Supprimer</button>
         </div>
@@ -686,6 +808,15 @@ function renderCompetencesList(res) {
           body: JSON.stringify({ statut: cb.checked ? 1 : 0 })
         });
         toast('Compétence mise à jour dans tous les cours associés.');
+        loadCompetences();
+      } catch (err) { toast(err.message, true); }
+    });
+  });
+  list.querySelectorAll('.btn-reviser-competence').forEach(b => {
+    b.addEventListener('click', async () => {
+      try {
+        await api(`/api/competences/${b.dataset.id}/revision`, { method: 'PATCH' });
+        toast('Révision enregistrée.');
         loadCompetences();
       } catch (err) { toast(err.message, true); }
     });
@@ -798,6 +929,7 @@ function projetsQueryString() {
 }
 
 async function loadProjets() {
+  showSpinner('list-projets');
   const res = await api(`/api/projets?${projetsQueryString()}`);
   renderProjetsList(res);
 }
@@ -851,6 +983,7 @@ async function openProjetModal(id) {
   const editing = !!id;
   let projet = null;
   if (editing) {
+    openModal('<div class="spinner-wrap"><div class="spinner"></div></div>');
     const res = await api(`/api/projets?search=&page=1`);
     projet = res.data.find(p => String(p.id) === String(id));
     if (!projet) {
@@ -924,6 +1057,7 @@ function tachesQueryString() {
 }
 
 async function loadTaches() {
+  showSpinner('list-taches');
   const res = await api(`/api/taches?${tachesQueryString()}`);
   renderTachesList(res);
 }
@@ -997,6 +1131,7 @@ function optionsForLienType(type) {
 
 async function openTacheModal(id) {
   const editing = !!id;
+  openModal('<div class="spinner-wrap"><div class="spinner"></div></div>');
   await ensureLienCachesLoaded();
 
   let tache = null;

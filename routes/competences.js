@@ -115,6 +115,20 @@ router.patch('/:id/niveau', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// PATCH /api/competences/:id/revision — marque la compétence comme révisée aujourd'hui.
+router.patch('/:id/revision', async (req, res, next) => {
+  try {
+    const id = req.params.id;
+    const existing = await pool.query('SELECT * FROM competences WHERE id = $1 AND user_id = $2', [id, req.userId]);
+    if (existing.rows.length === 0) return res.status(404).json({ error: 'Compétence introuvable' });
+    if (!existing.rows[0].statut) return res.status(400).json({ error: 'La compétence doit être acquise pour enregistrer une révision' });
+    await pool.query('UPDATE competences SET derniere_revision = CURRENT_DATE WHERE id = $1 AND user_id = $2', [id, req.userId]);
+    const { rows } = await pool.query('SELECT * FROM competences WHERE id = $1', [id]);
+    const [withCours] = await attachCours(rows, req.userId);
+    res.json(withCours);
+  } catch (err) { next(err); }
+});
+
 router.delete('/:id', async (req, res, next) => {
   try {
     const id = req.params.id;

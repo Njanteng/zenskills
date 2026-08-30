@@ -77,6 +77,12 @@ Deux boutons en bas de la barre latérale, **scopés au compte connecté** :
 
 Titre + description + coché/non coché, avec un lien optionnel vers **un** cours, un parcours ou un projet de votre compte (jamais plusieurs à la fois). Les descriptions (comme partout ailleurs dans l'app) conservent les sauts de ligne à l'affichage.
 
+## Date de dernière révision
+
+Sur les Cours terminés et les Compétences acquises : un bouton **"Réviser"** enregistre la date du jour, indépendamment du statut (ne change rien d'autre). Le bouton n'apparaît que sur les éléments terminés/acquis.
+
+Sur le tableau de bord, une section **"À revoir"** liste en premier (avant même les compétences acquises) tout cours terminé ou compétence acquise qui n'a jamais été révisé, ou pas depuis plus de **6 mois** — avec un bouton pour marquer la révision directement depuis le dashboard.
+
 ## Workflow de développement (CI/CD)
 
 - **CI** (`.github/workflows/ci.yml`) : à chaque push ou pull request vers `main`, installe les dépendances, vérifie la syntaxe de tous les fichiers `.js`, audit non bloquant.
@@ -89,4 +95,3 @@ git checkout -b ma-fonctionnalite
 git push -u origin ma-fonctionnalite
 ```
 Ouvrir la PR sur GitHub → CI + preview Vercel → merge dans `main` → déploiement en production.
-

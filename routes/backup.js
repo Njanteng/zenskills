@@ -16,8 +16,8 @@ router.get('/export', async (req, res, next) => {
   try {
     const userId = req.userId;
     const [coursRes, compRes, coursCompRes, parcoursRes, parcoursCoursRes, projetsRes, tachesRes] = await Promise.all([
-      pool.query('SELECT id, titre, description, statut, categorie, format, niveau_maitrise FROM cours WHERE user_id = $1 ORDER BY id', [userId]),
-      pool.query('SELECT id, nom, description, statut, niveau_maitrise FROM competences WHERE user_id = $1 ORDER BY id', [userId]),
+      pool.query('SELECT id, titre, description, statut, categorie, format, niveau_maitrise, derniere_revision FROM cours WHERE user_id = $1 ORDER BY id', [userId]),
+      pool.query('SELECT id, nom, description, statut, niveau_maitrise, derniere_revision FROM competences WHERE user_id = $1 ORDER BY id', [userId]),
       pool.query(`
         SELECT c.titre AS cours_titre, k.nom AS competence_nom
         FROM cours_competences cc
@@ -68,7 +68,8 @@ router.get('/export', async (req, res, next) => {
       { header: 'statut', key: 'statut', width: 9 },
       { header: 'categorie', key: 'categorie', width: 26 },
       { header: 'format', key: 'format', width: 10 },
-      { header: 'niveau_maitrise', key: 'niveau_maitrise', width: 16 }
+      { header: 'niveau_maitrise', key: 'niveau_maitrise', width: 16 },
+      { header: 'derniere_revision', key: 'derniere_revision', width: 16 }
     ], coursRes.rows);
 
     addSheet('Competences', [
@@ -76,7 +77,8 @@ router.get('/export', async (req, res, next) => {
       { header: 'nom', key: 'nom', width: 28 },
       { header: 'description', key: 'description', width: 40 },
       { header: 'statut', key: 'statut', width: 9 },
-      { header: 'niveau_maitrise', key: 'niveau_maitrise', width: 16 }
+      { header: 'niveau_maitrise', key: 'niveau_maitrise', width: 16 },
+      { header: 'derniere_revision', key: 'derniere_revision', width: 16 }
     ], compRes.rows);
 
     addSheet('Cours_Competences', [
@@ -150,6 +152,13 @@ function validNiveau(statut, v) {
   return Number.isInteger(n) && n >= 1 && n <= 5 ? n : null;
 }
 
+function parseDate(v) {
+  if (!v) return null;
+  if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? null : d;
+}
+
 router.post('/import', upload.single('file'), async (req, res, next) => {
   if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu.' });
 
@@ -188,9 +197,10 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
       const categorie = CATEGORIES.includes(r.categorie) ? r.categorie : CATEGORIES[0];
       const format = FORMATS.includes(r.format) ? r.format : FORMATS[0];
       const niveau = validNiveau(statut, r.niveau_maitrise);
+      const derniereRevision = statut ? parseDate(r.derniere_revision) : null;
       const insertRes = await client.query(
-        'INSERT INTO cours (user_id, titre, description, statut, categorie, format, niveau_maitrise) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id',
-        [userId, titre, r.description || '', statut, categorie, format, niveau]
+        'INSERT INTO cours (user_id, titre, description, statut, categorie, format, niveau_maitrise, derniere_revision) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id',
+        [userId, titre, r.description || '', statut, categorie, format, niveau, derniereRevision]
       );
       coursIdByTitre.set(titre, insertRes.rows[0].id);
     }
@@ -201,9 +211,10 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
       if (!nom) continue;
       const statut = truthy(r.statut) ? 1 : 0;
       const niveau = validNiveau(statut, r.niveau_maitrise);
+      const derniereRevision = statut ? parseDate(r.derniere_revision) : null;
       const insertRes = await client.query(
-        'INSERT INTO competences (user_id, nom, description, statut, niveau_maitrise) VALUES ($1,$2,$3,$4,$5) RETURNING id',
-        [userId, nom, r.description || '', statut, niveau]
+        'INSERT INTO competences (user_id, nom, description, statut, niveau_maitrise, derniere_revision) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id',
+        [userId, nom, r.description || '', statut, niveau, derniereRevision]
       );
       compIdByNom.set(nom, insertRes.rows[0].id);
     }
