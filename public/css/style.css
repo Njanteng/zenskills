@@ -503,13 +503,17 @@ button, input, select, textarea {
 .btn-text:hover { color: var(--text); }
 
 .btn-icon {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
   font-size: 15px;
   padding: 6px 7px;
   line-height: 1;
   border-radius: var(--radius);
 }
 
-.btn-icon:hover { background: var(--bg-hover); }
+.btn-icon:hover { background: var(--bg-hover); color: var(--text); }
 .btn-icon.btn-danger-icon:hover { background: rgba(209, 114, 138, 0.14); color: var(--danger); }
 
 .btn-sm { padding: 5px 10px; font-size: 12px; }
