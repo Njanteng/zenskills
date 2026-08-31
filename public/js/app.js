@@ -344,9 +344,9 @@ function renderCoursList(res) {
           </div>
         </div>
         <div class="list-item-actions">
-          ${c.statut === 1 ? `<button class="btn-text btn-reviser-cours" data-id="${c.id}">Réviser</button>` : ''}
-          <button class="btn-text btn-edit-cours" data-id="${c.id}">Modifier</button>
-          <button class="btn-text btn-delete-cours" data-id="${c.id}" style="color:var(--danger)">Supprimer</button>
+          ${c.statut === 1 ? `<button class="btn-icon btn-reviser-cours" data-id="${c.id}" title="Réviser" aria-label="Réviser">↻</button>` : ''}
+          <button class="btn-icon btn-edit-cours" data-id="${c.id}" title="Modifier" aria-label="Modifier">✎</button>
+          <button class="btn-icon btn-danger-icon btn-delete-cours" data-id="${c.id}" title="Supprimer" aria-label="Supprimer">🗑</button>
         </div>
       </div>
     `).join('');
@@ -571,8 +571,8 @@ function renderParcoursList(res) {
           </div>
         </div>
         <div class="list-item-actions">
-          <button class="btn-text btn-edit-parcours" data-id="${p.id}">Modifier</button>
-          <button class="btn-text btn-delete-parcours" data-id="${p.id}" style="color:var(--danger)">Supprimer</button>
+          <button class="btn-icon btn-edit-parcours" data-id="${p.id}" title="Modifier" aria-label="Modifier">✎</button>
+          <button class="btn-icon btn-danger-icon btn-delete-parcours" data-id="${p.id}" title="Supprimer" aria-label="Supprimer">🗑</button>
         </div>
       </div>
     `).join('');
@@ -793,9 +793,9 @@ function renderCompetencesList(res) {
           </div>
         </div>
         <div class="list-item-actions">
-          ${k.statut === 1 ? `<button class="btn-text btn-reviser-competence" data-id="${k.id}">Réviser</button>` : ''}
-          <button class="btn-text btn-edit-competence" data-id="${k.id}">Modifier</button>
-          <button class="btn-text btn-delete-competence" data-id="${k.id}" style="color:var(--danger)">Supprimer</button>
+          ${k.statut === 1 ? `<button class="btn-icon btn-reviser-competence" data-id="${k.id}" title="Réviser" aria-label="Réviser">↻</button>` : ''}
+          <button class="btn-icon btn-edit-competence" data-id="${k.id}" title="Modifier" aria-label="Modifier">✎</button>
+          <button class="btn-icon btn-danger-icon btn-delete-competence" data-id="${k.id}" title="Supprimer" aria-label="Supprimer">🗑</button>
         </div>
       </div>
     `).join('');
@@ -949,8 +949,8 @@ function renderProjetsList(res) {
           ${p.description ? `<div class="list-item-desc">${esc(p.description)}</div>` : ''}
         </div>
         <div class="list-item-actions">
-          <button class="btn-text btn-edit-projet" data-id="${p.id}">Modifier</button>
-          <button class="btn-text btn-delete-projet" data-id="${p.id}" style="color:var(--danger)">Supprimer</button>
+          <button class="btn-icon btn-edit-projet" data-id="${p.id}" title="Modifier" aria-label="Modifier">✎</button>
+          <button class="btn-icon btn-danger-icon btn-delete-projet" data-id="${p.id}" title="Supprimer" aria-label="Supprimer">🗑</button>
         </div>
       </div>
     `).join('');
@@ -1084,8 +1084,8 @@ function renderTachesList(res) {
           ${t.lien ? `<div class="tag-row"><span class="tag lien">${esc(lienLabel(t.lien))}</span></div>` : ''}
         </div>
         <div class="list-item-actions">
-          <button class="btn-text btn-edit-tache" data-id="${t.id}">Modifier</button>
-          <button class="btn-text btn-delete-tache" data-id="${t.id}" style="color:var(--danger)">Supprimer</button>
+          <button class="btn-icon btn-edit-tache" data-id="${t.id}" title="Modifier" aria-label="Modifier">✎</button>
+          <button class="btn-icon btn-danger-icon btn-delete-tache" data-id="${t.id}" title="Supprimer" aria-label="Supprimer">🗑</button>
         </div>
       </div>
     `).join('');

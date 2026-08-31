@@ -502,6 +502,16 @@ button, input, select, textarea {
 
 .btn-text:hover { color: var(--text); }
 
+.btn-icon {
+  font-size: 15px;
+  padding: 6px 7px;
+  line-height: 1;
+  border-radius: var(--radius);
+}
+
+.btn-icon:hover { background: var(--bg-hover); }
+.btn-icon.btn-danger-icon:hover { background: rgba(209, 114, 138, 0.14); color: var(--danger); }
+
 .btn-sm { padding: 5px 10px; font-size: 12px; }
 
 /* Toolbar */
@@ -899,13 +909,57 @@ button, input, select, textarea {
 
 @media (max-width: 760px) {
   .app { flex-direction: column; }
-  .sidebar { width: 100%; height: auto; flex-direction: row; align-items: center; padding: 16px 20px; }
-  .nav { flex-direction: row; overflow-x: auto; }
+
+  .sidebar {
+    position: static;
+    width: 100%;
+    height: auto;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 14px 16px;
+    gap: 12px;
+  }
   .brand-tagline { display: none; }
-  .content { padding: 24px; }
+
+  .nav {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 4px;
+    padding-bottom: 2px;
+  }
+  .nav-item {
+    flex: 0 0 auto;
+    padding: 8px 10px;
+    font-size: 12.5px;
+    white-space: nowrap;
+  }
+
+  .content { padding: 20px 16px; }
+
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
   .field-row { flex-direction: column; gap: 0; }
   .sidebar-footer { display: none; }
   .dashboard-parcours-list { grid-template-columns: 1fr; }
   .dashboard-columns { grid-template-columns: 1fr; }
+
+  /* Barres d'outils : recherche + filtres empilés en pleine largeur plutôt
+     qu'en ligne — évite tout débordement horizontal causé par la largeur
+     intrinsèque des <select> natifs. */
+  .toolbar { flex-direction: column; align-items: stretch; }
+  .search-input, .filter-select { width: 100%; min-width: 0; }
+
+  /* Modales : moins de marge perdue autour, contenu qui ne pousse jamais
+     au-delà de la largeur de l'écran. */
+  .modal-overlay { padding: 16px 10px; }
+  .modal { padding: 20px; max-width: 100%; }
+
+  /* Liste de cours d'un parcours (modale) : autorise le retour à la ligne
+     plutôt que de forcer tous les éléments sur une seule rangée étroite. */
+  .dd-item { flex-wrap: wrap; row-gap: 8px; }
+  .dd-title { flex-basis: 100%; }
+  .dd-add-row { flex-direction: column; align-items: stretch; }
+
+  .checkbox-list label { word-break: break-word; }
 }
