@@ -201,7 +201,7 @@ button, input, select, textarea {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 14px;
-  margin-bottom: 44px;
+  margin-bottom: 20px;
 }
 
 .stat-card {
@@ -257,9 +257,36 @@ button, input, select, textarea {
   letter-spacing: 0.5px;
 }
 
+/* Dashboard panels */
+.dashboard-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 14px;
+  align-items: start;
+}
+
+.dashboard-panel {
+  background: var(--bg-raised);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+
+.dashboard-panel-full { margin-bottom: 0; }
+
+.panel-title {
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+}
+
 /* Dashboard competences acquises */
 .dashboard-competences {
-  margin-bottom: 8px;
   min-height: 20px;
   align-items: flex-start;
 }
@@ -282,15 +309,14 @@ button, input, select, textarea {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-bottom: 8px;
 }
 
 .ar-item {
-  background: var(--bg-raised);
+  background: var(--bg);
   border: 1px solid var(--border-soft);
   border-left: 3px solid var(--gold);
   border-radius: var(--radius);
-  padding: 12px 16px;
+  padding: 12px 14px;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -298,7 +324,7 @@ button, input, select, textarea {
 
 .ar-main { flex: 1; min-width: 0; }
 
-.ar-title { font-weight: 600; }
+.ar-title { font-weight: 600; font-size: 13px; }
 
 .ar-meta {
   font-size: 12px;
@@ -307,6 +333,13 @@ button, input, select, textarea {
 }
 
 .ar-meta .tag { margin-right: 6px; }
+
+.ar-more {
+  font-size: 12px;
+  color: var(--text-faint);
+  text-align: center;
+  padding-top: 2px;
+}
 
 /* Dashboard parcours grid */
 .dashboard-parcours-list {
@@ -317,7 +350,7 @@ button, input, select, textarea {
 }
 
 .dp-item {
-  background: var(--bg-raised);
+  background: var(--bg);
   border: 1px solid var(--border-soft);
   border-radius: var(--radius);
   overflow: hidden;
@@ -874,4 +907,5 @@ button, input, select, textarea {
   .field-row { flex-direction: column; gap: 0; }
   .sidebar-footer { display: none; }
   .dashboard-parcours-list { grid-template-columns: 1fr; }
+  .dashboard-columns { grid-template-columns: 1fr; }
 }

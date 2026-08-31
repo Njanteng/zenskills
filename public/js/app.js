@@ -203,14 +203,16 @@ async function loadDashboard() {
       </div>`;
   }).join('');
 
-  const arHeader = document.getElementById('a-revoir-header');
   const arContainer = document.getElementById('dashboard-a-revoir');
-  if (!data.aRevoir || data.aRevoir.length === 0) {
-    arHeader.style.display = 'none';
-    arContainer.innerHTML = '';
+  const aRevoir = data.aRevoir || [];
+  if (aRevoir.length === 0) {
+    arContainer.innerHTML = '<span class="list-empty" style="padding:0">Rien à revoir pour le moment.</span>';
   } else {
-    arHeader.style.display = '';
-    arContainer.innerHTML = data.aRevoir.map(item => `
+    const VISIBLE = 5;
+    const visible = aRevoir.slice(0, VISIBLE);
+    const remaining = aRevoir.length - visible.length;
+
+    arContainer.innerHTML = visible.map(item => `
       <div class="ar-item">
         <div class="ar-main">
           <div class="ar-title">${esc(item.nom)}</div>
@@ -221,7 +223,7 @@ async function loadDashboard() {
         </div>
         <button class="btn btn-sm btn-reviser" data-type="${item.type}" data-id="${item.id}">Réviser aujourd'hui</button>
       </div>
-    `).join('');
+    `).join('') + (remaining > 0 ? `<div class="ar-more">+ ${remaining} autre${remaining > 1 ? 's' : ''} à revoir</div>` : '');
 
     arContainer.querySelectorAll('.btn-reviser').forEach(btn => {
       btn.addEventListener('click', async () => {
