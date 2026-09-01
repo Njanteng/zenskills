@@ -7,20 +7,36 @@ const router = express.Router();
 const LIEN_TYPES = ['cours', 'parcours', 'projet'];
 
 async function attachLien(rows) {
-  return Promise.all(rows.map(async t => {
+  if (rows.length === 0) return [];
+
+  const coursIds = [...new Set(rows.filter(t => t.cours_id).map(t => t.cours_id))];
+  const parcoursIds = [...new Set(rows.filter(t => t.parcours_id).map(t => t.parcours_id))];
+  const projetIds = [...new Set(rows.filter(t => t.projet_id).map(t => t.projet_id))];
+
+  const [coursRes, parcoursRes, projetsRes] = await Promise.all([
+    coursIds.length ? pool.query('SELECT id, titre FROM cours WHERE id = ANY($1::int[])', [coursIds]) : { rows: [] },
+    parcoursIds.length ? pool.query('SELECT id, titre FROM parcours WHERE id = ANY($1::int[])', [parcoursIds]) : { rows: [] },
+    projetIds.length ? pool.query('SELECT id, titre FROM projets WHERE id = ANY($1::int[])', [projetIds]) : { rows: [] }
+  ]);
+
+  const coursById = new Map(coursRes.rows.map(r => [r.id, r]));
+  const parcoursById = new Map(parcoursRes.rows.map(r => [r.id, r]));
+  const projetsById = new Map(projetsRes.rows.map(r => [r.id, r]));
+
+  return rows.map(t => {
     let lien = null;
-    if (t.cours_id) {
-      const { rows: r } = await pool.query('SELECT id, titre FROM cours WHERE id = $1', [t.cours_id]);
-      if (r[0]) lien = { type: 'cours', id: r[0].id, titre: r[0].titre };
-    } else if (t.parcours_id) {
-      const { rows: r } = await pool.query('SELECT id, titre FROM parcours WHERE id = $1', [t.parcours_id]);
-      if (r[0]) lien = { type: 'parcours', id: r[0].id, titre: r[0].titre };
-    } else if (t.projet_id) {
-      const { rows: r } = await pool.query('SELECT id, titre FROM projets WHERE id = $1', [t.projet_id]);
-      if (r[0]) lien = { type: 'projet', id: r[0].id, titre: r[0].titre };
+    if (t.cours_id && coursById.has(t.cours_id)) {
+      const c = coursById.get(t.cours_id);
+      lien = { type: 'cours', id: c.id, titre: c.titre };
+    } else if (t.parcours_id && parcoursById.has(t.parcours_id)) {
+      const p = parcoursById.get(t.parcours_id);
+      lien = { type: 'parcours', id: p.id, titre: p.titre };
+    } else if (t.projet_id && projetsById.has(t.projet_id)) {
+      const pj = projetsById.get(t.projet_id);
+      lien = { type: 'projet', id: pj.id, titre: pj.titre };
     }
     return { ...t, lien };
-  }));
+  });
 }
 
 // Valide { lien_type, lien_id } et vérifie que l'élément appartient bien à l'utilisateur.

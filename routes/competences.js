@@ -5,16 +5,25 @@ const { paginate } = require('../utils');
 const router = express.Router();
 
 async function attachCours(list, userId) {
-  return Promise.all(list.map(async k => {
-    const { rows } = await pool.query(`
-      SELECT c.id, c.titre, c.statut
-      FROM cours c
-      JOIN cours_competences cc ON cc.cours_id = c.id
-      WHERE cc.competence_id = $1 AND c.user_id = $2
-      ORDER BY LOWER(c.titre)
-    `, [k.id, userId]);
-    return { ...k, cours: rows };
-  }));
+  if (list.length === 0) return [];
+  const ids = list.map(k => k.id);
+
+  const { rows } = await pool.query(`
+    SELECT cc.competence_id, c.id, c.titre, c.statut
+    FROM cours_competences cc
+    JOIN cours c ON c.id = cc.cours_id
+    WHERE cc.competence_id = ANY($1::int[]) AND c.user_id = $2
+    ORDER BY LOWER(c.titre)
+  `, [ids, userId]);
+
+  const coursByCompetence = new Map();
+  for (const row of rows) {
+    const { competence_id, ...cours } = row;
+    if (!coursByCompetence.has(competence_id)) coursByCompetence.set(competence_id, []);
+    coursByCompetence.get(competence_id).push(cours);
+  }
+
+  return list.map(k => ({ ...k, cours: coursByCompetence.get(k.id) || [] }));
 }
 
 function normalizeNiveau(statut, niveau) {

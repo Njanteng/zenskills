@@ -5,18 +5,30 @@ const { paginate } = require('../utils');
 const router = express.Router();
 
 async function attachCours(list) {
-  return Promise.all(list.map(async p => {
-    const { rows: cours } = await pool.query(`
-      SELECT c.id, c.titre, c.statut, c.categorie, c.format, c.niveau_maitrise, pc.type, pc.position
-      FROM parcours_cours pc
-      JOIN cours c ON c.id = pc.cours_id
-      WHERE pc.parcours_id = $1
-      ORDER BY pc.position ASC
-    `, [p.id]);
+  if (list.length === 0) return [];
+  const ids = list.map(p => p.id);
+
+  const { rows } = await pool.query(`
+    SELECT pc.parcours_id, c.id, c.titre, c.statut, c.categorie, c.format, c.niveau_maitrise, pc.type, pc.position
+    FROM parcours_cours pc
+    JOIN cours c ON c.id = pc.cours_id
+    WHERE pc.parcours_id = ANY($1::int[])
+    ORDER BY pc.position ASC
+  `, [ids]);
+
+  const coursByParcours = new Map();
+  for (const row of rows) {
+    const { parcours_id, ...cours } = row;
+    if (!coursByParcours.has(parcours_id)) coursByParcours.set(parcours_id, []);
+    coursByParcours.get(parcours_id).push(cours);
+  }
+
+  return list.map(p => {
+    const cours = coursByParcours.get(p.id) || [];
     const obligatoires = cours.filter(c => c.type === 'Obligatoire');
     const completed = obligatoires.every(c => c.statut === 1);
     return { ...p, cours, completed };
-  }));
+  });
 }
 
 router.get('/', async (req, res, next) => {

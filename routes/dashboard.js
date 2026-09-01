@@ -31,18 +31,31 @@ router.get('/', async (req, res, next) => {
       `, [userId])
     ]);
 
-    const parcoursList = await Promise.all(parcoursRes.rows.map(async p => {
-      const { rows: cours } = await pool.query(`
-        SELECT c.id, c.titre, c.statut, c.categorie, c.format, c.niveau_maitrise, pc.type, pc.position
+    let parcoursCoursRows = [];
+    if (parcoursRes.rows.length > 0) {
+      const parcoursIds = parcoursRes.rows.map(p => p.id);
+      const { rows } = await pool.query(`
+        SELECT pc.parcours_id, c.id, c.titre, c.statut, c.categorie, c.format, c.niveau_maitrise, pc.type, pc.position
         FROM parcours_cours pc
         JOIN cours c ON c.id = pc.cours_id
-        WHERE pc.parcours_id = $1
+        WHERE pc.parcours_id = ANY($1::int[])
         ORDER BY pc.position ASC
-      `, [p.id]);
+      `, [parcoursIds]);
+      parcoursCoursRows = rows;
+    }
+    const coursByParcours = new Map();
+    for (const row of parcoursCoursRows) {
+      const { parcours_id, ...cours } = row;
+      if (!coursByParcours.has(parcours_id)) coursByParcours.set(parcours_id, []);
+      coursByParcours.get(parcours_id).push(cours);
+    }
+
+    const parcoursList = parcoursRes.rows.map(p => {
+      const cours = coursByParcours.get(p.id) || [];
       const obligatoires = cours.filter(c => c.type === 'Obligatoire');
       const completed = obligatoires.every(c => c.statut === 1);
       return { id: p.id, titre: p.titre, description: p.description, completed, cours };
-    }));
+    });
 
     const competencesAcquises = competencesRes.rows
       .filter(k => k.statut === 1)

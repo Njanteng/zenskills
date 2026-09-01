@@ -6,18 +6,37 @@ const { paginate } = require('../utils');
 const router = express.Router();
 
 async function attachExtras(rows, userId) {
-  return Promise.all(rows.map(async c => {
-    const [compRes, nbRes] = await Promise.all([
-      pool.query(`
-        SELECT co.id, co.nom, co.description, co.statut, co.niveau_maitrise
-        FROM competences co
-        JOIN cours_competences cc ON cc.competence_id = co.id
-        WHERE cc.cours_id = $1 AND co.user_id = $2
-        ORDER BY LOWER(co.nom)
-      `, [c.id, userId]),
-      pool.query('SELECT COUNT(*)::int AS n FROM parcours_cours WHERE cours_id = $1', [c.id])
-    ]);
-    return { ...c, competences: compRes.rows, nb_parcours: nbRes.rows[0].n };
+  if (rows.length === 0) return [];
+  const ids = rows.map(c => c.id);
+
+  const [compRes, nbRes] = await Promise.all([
+    pool.query(`
+      SELECT cc.cours_id, co.id, co.nom, co.description, co.statut, co.niveau_maitrise
+      FROM cours_competences cc
+      JOIN competences co ON co.id = cc.competence_id
+      WHERE cc.cours_id = ANY($1::int[]) AND co.user_id = $2
+      ORDER BY LOWER(co.nom)
+    `, [ids, userId]),
+    pool.query(`
+      SELECT cours_id, COUNT(*)::int AS n
+      FROM parcours_cours
+      WHERE cours_id = ANY($1::int[])
+      GROUP BY cours_id
+    `, [ids])
+  ]);
+
+  const competencesByCours = new Map();
+  for (const row of compRes.rows) {
+    const { cours_id, ...comp } = row;
+    if (!competencesByCours.has(cours_id)) competencesByCours.set(cours_id, []);
+    competencesByCours.get(cours_id).push(comp);
+  }
+  const nbParcoursByCours = new Map(nbRes.rows.map(r => [r.cours_id, r.n]));
+
+  return rows.map(c => ({
+    ...c,
+    competences: competencesByCours.get(c.id) || [],
+    nb_parcours: nbParcoursByCours.get(c.id) || 0
   }));
 }
 
