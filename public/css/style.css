@@ -821,13 +821,18 @@ button, input, select, textarea {
 
 .dd-title { flex: 1; font-size: 13px; }
 
-.dd-type-select {
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 4px 8px;
+.dd-optional {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
+
+.dd-optional input { accent-color: var(--accent); cursor: pointer; }
 
 .dd-remove {
   background: none;

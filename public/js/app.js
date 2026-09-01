@@ -686,16 +686,18 @@ function renderDDList() {
     <div class="dd-item" data-index="${i}">
       <span class="dd-handle">⠿</span>
       <span class="dd-title">${esc(d.titre)}</span>
-      <select class="dd-type-select" data-index="${i}">
-        <option value="Obligatoire" ${d.type === 'Obligatoire' ? 'selected' : ''}>Obligatoire</option>
-        <option value="Optionnel" ${d.type === 'Optionnel' ? 'selected' : ''}>Optionnel</option>
-      </select>
+      <label class="dd-optional">
+        <input type="checkbox" class="dd-type-checkbox" data-index="${i}" ${d.type === 'Optionnel' ? 'checked' : ''}>
+        Optionnel
+      </label>
       <button type="button" class="dd-remove" data-index="${i}">✕</button>
     </div>
   `).join('');
 
-  container.querySelectorAll('.dd-type-select').forEach(sel => {
-    sel.addEventListener('change', () => { ddState[Number(sel.dataset.index)].type = sel.value; });
+  container.querySelectorAll('.dd-type-checkbox').forEach(cb => {
+    cb.addEventListener('change', () => {
+      ddState[Number(cb.dataset.index)].type = cb.checked ? 'Optionnel' : 'Obligatoire';
+    });
   });
   container.querySelectorAll('.dd-remove').forEach(btn => {
     btn.addEventListener('click', () => {
