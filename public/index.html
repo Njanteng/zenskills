@@ -24,6 +24,9 @@
       <button class="nav-item active" data-tab="dashboard">
         <span class="nav-dot"></span> Tableau de bord
       </button>
+      <button class="nav-item" data-tab="taches">
+        <span class="nav-dot"></span> Tâches
+      </button>
       <button class="nav-item" data-tab="cours">
         <span class="nav-dot"></span> Cours
       </button>
@@ -35,9 +38,6 @@
       </button>
       <button class="nav-item" data-tab="projets">
         <span class="nav-dot"></span> Projets
-      </button>
-      <button class="nav-item" data-tab="taches">
-        <span class="nav-dot"></span> Tâches
       </button>
     </nav>
 
@@ -64,21 +64,37 @@
 
       <div class="stats-grid" id="stats-grid"></div>
 
-      <div class="dashboard-columns">
-        <div class="dashboard-panel">
-          <div class="panel-title">À revoir</div>
-          <div id="dashboard-a-revoir" class="dashboard-a-revoir-list"></div>
-        </div>
-        <div class="dashboard-panel">
-          <div class="panel-title">Compétences acquises</div>
-          <div id="dashboard-competences" class="tag-row dashboard-competences"></div>
-        </div>
-      </div>
-
       <div class="dashboard-panel dashboard-panel-full">
-        <div class="panel-title">Parcours</div>
-        <div id="dashboard-parcours" class="dashboard-parcours-list"></div>
+        <div class="panel-title">À revoir</div>
+        <div id="dashboard-a-revoir" class="dashboard-a-revoir-list"></div>
       </div>
+    </section>
+
+    <!-- PARCOURS — aperçu visuel (ouvert depuis la carte PARCOURS du dashboard) -->
+    <section class="tab-panel" id="tab-parcours-visuel">
+      <button class="btn-back" id="btn-back-parcours-visuel">← Retour au tableau de bord</button>
+      <div class="panel-header">
+        <h1>Parcours</h1>
+      </div>
+      <div class="parcours-visuel-grid" id="parcours-visuel-grid"></div>
+    </section>
+
+    <!-- PARCOURS — chemin d'un parcours, façon Duolingo -->
+    <section class="tab-panel" id="tab-parcours-chemin">
+      <button class="btn-back" id="btn-back-parcours-chemin">← Retour aux parcours</button>
+      <div class="panel-header">
+        <h1 id="chemin-titre">Parcours</h1>
+      </div>
+      <div id="chemin-container"></div>
+    </section>
+
+    <!-- COMPETENCES — tableau de badges (ouvert depuis la carte COMPÉTENCES du dashboard) -->
+    <section class="tab-panel" id="tab-competences-badges">
+      <button class="btn-back" id="btn-back-competences-badges">← Retour au tableau de bord</button>
+      <div class="panel-header">
+        <h1>Compétences acquises</h1>
+      </div>
+      <div class="badge-board" id="badge-board"></div>
     </section>
 
     <!-- COURS -->

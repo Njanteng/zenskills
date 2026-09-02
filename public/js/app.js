@@ -102,6 +102,13 @@ function switchTab(tab) {
   if (tab === 'taches') loadTaches();
 }
 
+// Affiche une vue "secondaire" (accessible uniquement depuis une carte du dashboard,
+// pas depuis le menu) sans toucher au surlignage de la navigation — on reste
+// visuellement sur "Tableau de bord" puisque c'est de là qu'on y accède.
+function showPanel(id) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `tab-${id}`));
+}
+
 // ===================== Modal helpers =====================
 const overlay = document.getElementById('modal-overlay');
 const modal = document.getElementById('modal');
@@ -181,27 +188,33 @@ async function loadDashboard() {
       <div class="skeleton" style="height:26px;width:80px;margin-bottom:12px"></div>
       <div class="skeleton" style="height:3px;width:100%"></div>
     </div>`).join('');
-  showSpinner('dashboard-competences');
-  showSpinner('dashboard-parcours');
+  showSpinner('dashboard-a-revoir');
 
   const data = await api('/api/dashboard');
 
   const cards = [
-    { label: 'Cours', ...data.cours },
-    { label: 'Parcours', ...data.parcours },
-    { label: 'Projets', ...data.projets },
-    { label: 'Compétences', ...data.competences }
+    { label: 'Cours', ...data.cours, clickable: false },
+    { label: 'Parcours', ...data.parcours, clickable: true, view: 'parcours-visuel' },
+    { label: 'Projets', ...data.projets, clickable: false },
+    { label: 'Compétences', ...data.competences, clickable: true, view: 'competences-badges' }
   ];
 
   document.getElementById('stats-grid').innerHTML = cards.map(c => {
     const pct = c.total > 0 ? Math.round((c.done / c.total) * 100) : 0;
     return `
-      <div class="stat-card">
+      <div class="stat-card ${c.clickable ? 'stat-card-clickable' : ''}" ${c.clickable ? `data-view="${c.view}"` : ''}>
         <div class="stat-label">${c.label}</div>
         <div class="stat-value">${c.done}<span class="stat-total"> / ${c.total}</span></div>
         <div class="stat-bar"><div class="stat-bar-fill" style="width:${pct}%"></div></div>
       </div>`;
   }).join('');
+
+  document.querySelectorAll('.stat-card-clickable').forEach(card => {
+    card.addEventListener('click', () => {
+      if (card.dataset.view === 'parcours-visuel') openParcoursVisuel(data);
+      if (card.dataset.view === 'competences-badges') openCompetencesBadges(data);
+    });
+  });
 
   const arContainer = document.getElementById('dashboard-a-revoir');
   const aRevoir = data.aRevoir || [];
@@ -236,71 +249,103 @@ async function loadDashboard() {
       });
     });
   }
+}
 
-  const compContainer = document.getElementById('dashboard-competences');
-  compContainer.innerHTML = data.competencesAcquises.length === 0
-    ? '<span class="list-empty" style="padding:0">Aucune compétence acquise pour le moment.</span>'
-    : data.competencesAcquises.map(k => `
-        <div class="dashboard-competence-item">
-          <span class="tag competence">${esc(k.nom)}</span>
-          ${k.niveau_maitrise ? `<div class="stars-mini">${starsDisplay(k.niveau_maitrise)}</div>` : ''}
-        </div>
-      `).join('');
+// ===================== PARCOURS — aperçu visuel & chemin =====================
+function openParcoursVisuel(dashboardData) {
+  showPanel('parcours-visuel');
+  renderParcoursVisuel(dashboardData.parcoursList);
+}
 
-  const container = document.getElementById('dashboard-parcours');
-  if (data.parcoursList.length === 0) {
-    container.innerHTML = '<div class="list-empty">Aucun parcours pour le moment.</div>';
+function renderParcoursVisuel(parcoursList) {
+  const grid = document.getElementById('parcours-visuel-grid');
+  if (!parcoursList || parcoursList.length === 0) {
+    grid.innerHTML = '<div class="list-empty">Aucun parcours pour le moment.</div>';
     return;
   }
-
-  container.innerHTML = data.parcoursList.map(p => {
+  grid.innerHTML = parcoursList.map(p => {
     const doneCount = p.cours.filter(c => c.statut === 1).length;
     const totalCount = p.cours.length;
     const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
     return `
-    <div class="dp-item" data-id="${p.id}">
-      <div class="dp-header">
-        <span class="dp-caret">▶</span>
-        <div class="dp-header-main">
-          <span class="dp-title">${esc(p.titre)}</span>
-          <div class="dp-progress-bar"><div class="dp-progress-fill" style="width:${pct}%"></div></div>
+      <button class="pv-card" data-id="${p.id}">
+        <div class="pv-card-title">${esc(p.titre)}</div>
+        <div class="dp-progress-bar"><div class="dp-progress-fill" style="width:${pct}%"></div></div>
+        <div class="pv-card-meta">
+          <span class="dp-badge ${p.completed ? 'done' : ''}">${p.completed ? 'Terminé' : `${doneCount}/${totalCount}`}</span>
         </div>
-        <span class="dp-badge ${p.completed ? 'done' : ''}">${p.completed ? 'Terminé' : `${doneCount}/${totalCount}`}</span>
-      </div>
-      <div class="dp-body">
-        ${p.cours.length === 0
-          ? '<div class="list-empty">Aucun cours dans ce parcours.</div>'
-          : p.cours.map(c => `
-            <label class="dp-cours-row ${c.statut === 1 ? 'done' : ''}">
-              <input type="checkbox" class="list-item-checkbox dp-cours-checkbox" data-cours-id="${c.id}" ${c.statut === 1 ? 'checked' : ''}>
-              ${esc(c.titre)}
-              <span class="dp-cours-type">${c.type}</span>
-            </label>
-          `).join('')}
-      </div>
-    </div>
-  `;
+      </button>
+    `;
   }).join('');
 
-  container.querySelectorAll('.dp-header').forEach(h => {
-    h.addEventListener('click', () => h.closest('.dp-item').classList.toggle('open'));
+  grid.querySelectorAll('.pv-card').forEach(card => {
+    card.addEventListener('click', () => openCheminParcours(card.dataset.id));
   });
+}
 
-  container.querySelectorAll('.dp-cours-checkbox').forEach(cb => {
-    cb.addEventListener('click', e => e.stopPropagation());
-    cb.addEventListener('change', async () => {
+document.getElementById('btn-back-parcours-visuel').addEventListener('click', () => switchTab('dashboard'));
+document.getElementById('btn-back-parcours-chemin').addEventListener('click', async () => {
+  showPanel('parcours-visuel');
+  const data = await api('/api/dashboard');
+  renderParcoursVisuel(data.parcoursList);
+});
+
+async function openCheminParcours(id) {
+  showPanel('parcours-chemin');
+  const container = document.getElementById('chemin-container');
+  showSpinner('chemin-container');
+
+  const p = await api(`/api/parcours/${id}`);
+  document.getElementById('chemin-titre').textContent = p.titre;
+
+  if (p.cours.length === 0) {
+    container.innerHTML = '<div class="list-empty">Aucun cours dans ce parcours.</div>';
+    return;
+  }
+
+  container.innerHTML = `<div class="chemin-path">${p.cours.map((c, i) => `
+    <div class="chemin-node ${i % 2 === 0 ? 'chemin-left' : 'chemin-right'}">
+      <button class="chemin-circle ${c.statut === 1 ? 'done' : ''}" data-id="${c.id}" title="${c.statut === 1 ? 'Marquer non terminé' : 'Marquer terminé'}">
+        ${c.statut === 1 ? '✓' : i + 1}
+      </button>
+      <div class="chemin-label">
+        <div class="chemin-titre">${esc(c.titre)}</div>
+        <span class="tag ${c.type === 'Optionnel' ? '' : 'competence'}">${c.type}</span>
+      </div>
+    </div>
+  `).join('')}</div>`;
+
+  container.querySelectorAll('.chemin-circle').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const nowDone = !btn.classList.contains('done');
       try {
-        await api(`/api/cours/${cb.dataset.coursId}/statut`, {
+        await api(`/api/cours/${btn.dataset.id}/statut`, {
           method: 'PATCH',
-          body: JSON.stringify({ statut: cb.checked ? 1 : 0 })
+          body: JSON.stringify({ statut: nowDone ? 1 : 0 })
         });
-        loadDashboard();
-      } catch (err) {
-        toast(err.message, true);
-      }
+        openCheminParcours(id);
+      } catch (err) { toast(err.message, true); }
     });
   });
 }
+
+// ===================== COMPETENCES — tableau de badges =====================
+function openCompetencesBadges(dashboardData) {
+  showPanel('competences-badges');
+  const board = document.getElementById('badge-board');
+  const acquises = dashboardData.competencesAcquises || [];
+  board.innerHTML = acquises.length === 0
+    ? '<div class="list-empty">Aucune compétence acquise pour le moment.</div>'
+    : acquises.map(k => `
+        <div class="badge-item">
+          <div class="badge-medal">🏅</div>
+          <div class="badge-name">${esc(k.nom)}</div>
+          ${k.niveau_maitrise ? `<div class="stars-mini">${starsDisplay(k.niveau_maitrise)}</div>` : ''}
+        </div>
+      `).join('');
+}
+
+document.getElementById('btn-back-competences-badges').addEventListener('click', () => switchTab('dashboard'));
 
 // ===================== COURS =====================
 function coursQueryString() {
