@@ -114,16 +114,15 @@ const overlay = document.getElementById('modal-overlay');
 const modal = document.getElementById('modal');
 
 function openModal(html) {
-  modal.innerHTML = html;
+  modal.innerHTML = `<button type="button" class="modal-close" id="modal-close-btn" aria-label="Fermer" title="Fermer">✕</button>` + html;
   overlay.classList.add('active');
+  document.getElementById('modal-close-btn').addEventListener('click', closeModal);
 }
 
 function closeModal() {
   overlay.classList.remove('active');
   modal.innerHTML = '';
 }
-
-overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
 
 // ===================== Shared reference data =====================
 async function loadReferenceData() {
@@ -150,17 +149,11 @@ async function loadReferenceData() {
 }
 
 async function refreshAllCoursCache() {
-  const res = await api('/api/cours?page=1');
-  let all = res.data.slice();
-  for (let p = 2; p <= res.totalPages; p++) {
-    const r = await api(`/api/cours?page=${p}`);
-    all = all.concat(r.data);
-  }
-  state.allCours = all;
+  state.allCours = await api('/api/cours/all');
 
   const coursFilterSelect = document.getElementById('filter-competences-cours');
   coursFilterSelect.innerHTML = '<option value="">Cours : tous</option>' +
-    all.map(c => `<option value="${c.id}">${esc(c.titre)}</option>`).join('');
+    state.allCours.map(c => `<option value="${c.id}">${esc(c.titre)}</option>`).join('');
 }
 
 async function refreshAllCompetencesCache() {
@@ -221,11 +214,7 @@ async function loadDashboard() {
   if (aRevoir.length === 0) {
     arContainer.innerHTML = '<span class="list-empty" style="padding:0">Rien à revoir pour le moment.</span>';
   } else {
-    const VISIBLE = 5;
-    const visible = aRevoir.slice(0, VISIBLE);
-    const remaining = aRevoir.length - visible.length;
-
-    arContainer.innerHTML = visible.map(item => `
+    arContainer.innerHTML = aRevoir.map(item => `
       <div class="ar-item">
         <div class="ar-main">
           <div class="ar-title">${esc(item.nom)}</div>
@@ -236,7 +225,7 @@ async function loadDashboard() {
         </div>
         <button class="btn btn-sm btn-reviser" data-type="${item.type}" data-id="${item.id}">Réviser aujourd'hui</button>
       </div>
-    `).join('') + (remaining > 0 ? `<div class="ar-more">+ ${remaining} autre${remaining > 1 ? 's' : ''} à revoir</div>` : '');
+    `).join('');
 
     arContainer.querySelectorAll('.btn-reviser').forEach(btn => {
       btn.addEventListener('click', async () => {
@@ -660,9 +649,9 @@ async function openParcoursModal(id) {
       <div class="field">
         <label>Cours du parcours (glisser pour réordonner)</label>
         <div class="dd-list" id="dd-list"></div>
-        <div class="dd-add-row">
-          <select id="dd-add-select"></select>
-          <button type="button" class="btn btn-sm" id="dd-add-btn">Ajouter</button>
+        <div class="dd-search-wrap">
+          <input type="text" id="dd-search-input" placeholder="Rechercher un cours à ajouter…" autocomplete="off">
+          <div class="dd-search-results" id="dd-search-results"></div>
         </div>
       </div>
       <div class="modal-actions">
@@ -673,17 +662,17 @@ async function openParcoursModal(id) {
   `);
 
   renderDDList();
-  populateDDAddSelect();
 
-  document.getElementById('dd-add-btn').addEventListener('click', () => {
-    const sel = document.getElementById('dd-add-select');
-    const coursId = Number(sel.value);
-    if (!coursId) return;
-    const cours = state.allCours.find(c => c.id === coursId);
-    if (!cours || ddState.some(d => d.cours_id === coursId)) return;
-    ddState.push({ cours_id: coursId, titre: cours.titre, type: 'Obligatoire' });
-    renderDDList();
-    populateDDAddSelect();
+  const searchInput = document.getElementById('dd-search-input');
+  const searchResults = document.getElementById('dd-search-results');
+
+  searchInput.addEventListener('input', () => renderDDSearchResults(searchInput.value));
+  searchInput.addEventListener('focus', () => {
+    if (searchInput.value.trim()) renderDDSearchResults(searchInput.value);
+  });
+  searchInput.addEventListener('blur', () => {
+    // Délai pour laisser le clic sur un résultat s'exécuter avant de le masquer.
+    setTimeout(() => searchResults.classList.remove('active'), 150);
   });
 
   document.getElementById('btn-cancel').addEventListener('click', closeModal);
@@ -712,13 +701,37 @@ async function openParcoursModal(id) {
   });
 }
 
-function populateDDAddSelect() {
-  const sel = document.getElementById('dd-add-select');
+function renderDDSearchResults(query) {
+  const resultsEl = document.getElementById('dd-search-results');
+  const q = query.trim().toLowerCase();
+  if (!q) { resultsEl.innerHTML = ''; resultsEl.classList.remove('active'); return; }
+
   const usedIds = new Set(ddState.map(d => d.cours_id));
-  const available = state.allCours.filter(c => !usedIds.has(c.id));
-  sel.innerHTML = available.length === 0
-    ? '<option value="">Tous les cours sont déjà ajoutés</option>'
-    : '<option value="">Choisir un cours…</option>' + available.map(c => `<option value="${c.id}">${esc(c.titre)}</option>`).join('');
+  const MAX_RESULTS = 8;
+  const matches = state.allCours
+    .filter(c => !usedIds.has(c.id) && c.titre.toLowerCase().includes(q))
+    .slice(0, MAX_RESULTS);
+
+  resultsEl.innerHTML = matches.length === 0
+    ? '<div class="dd-search-empty">Aucun cours trouvé.</div>'
+    : matches.map(c => `<button type="button" class="dd-search-result" data-id="${c.id}">${esc(c.titre)}</button>`).join('');
+  resultsEl.classList.add('active');
+
+  resultsEl.querySelectorAll('.dd-search-result').forEach(btn => {
+    btn.addEventListener('mousedown', e => {
+      e.preventDefault(); // évite que le blur de l'input n'annule le clic
+      const coursId = Number(btn.dataset.id);
+      const cours = state.allCours.find(c => c.id === coursId);
+      if (!cours || ddState.some(d => d.cours_id === coursId)) return;
+      ddState.push({ cours_id: coursId, titre: cours.titre, type: 'Obligatoire' });
+      renderDDList();
+      const input = document.getElementById('dd-search-input');
+      input.value = '';
+      resultsEl.innerHTML = '';
+      resultsEl.classList.remove('active');
+      input.focus();
+    });
+  });
 }
 
 function renderDDList() {
@@ -748,7 +761,6 @@ function renderDDList() {
     btn.addEventListener('click', () => {
       ddState.splice(Number(btn.dataset.index), 1);
       renderDDList();
-      populateDDAddSelect();
     });
   });
 
