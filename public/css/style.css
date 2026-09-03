@@ -265,7 +265,8 @@ button, input, select, textarea {
   padding: 20px;
 }
 
-.dashboard-panel-full { margin-bottom: 0; }
+.dashboard-panel-full { margin-bottom: 14px; }
+.dashboard-panel-full:last-child { margin-bottom: 0; }
 
 .panel-title {
   font-family: var(--font-display);
@@ -503,6 +504,19 @@ button, input, select, textarea {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 22px;
+}
+
+.panel-header-column {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.panel-description {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin: 0;
+  max-width: 560px;
 }
 
 .panel-header h1 {

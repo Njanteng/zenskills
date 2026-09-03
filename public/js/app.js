@@ -181,7 +181,8 @@ async function loadDashboard() {
       <div class="skeleton" style="height:26px;width:80px;margin-bottom:12px"></div>
       <div class="skeleton" style="height:3px;width:100%"></div>
     </div>`).join('');
-  showSpinner('dashboard-a-revoir');
+  showSpinner('dashboard-cours-a-revoir');
+  showSpinner('dashboard-competences-a-revoir');
 
   const data = await api('/api/dashboard');
 
@@ -209,35 +210,39 @@ async function loadDashboard() {
     });
   });
 
-  const arContainer = document.getElementById('dashboard-a-revoir');
-  const aRevoir = data.aRevoir || [];
-  if (aRevoir.length === 0) {
-    arContainer.innerHTML = '<span class="list-empty" style="padding:0">Rien à revoir pour le moment.</span>';
-  } else {
-    arContainer.innerHTML = aRevoir.map(item => `
-      <div class="ar-item">
-        <div class="ar-main">
-          <div class="ar-title">${esc(item.nom)}</div>
-          <div class="ar-meta">
-            <span class="tag ${item.type === 'cours' ? 'format' : 'competence'}">${item.type === 'cours' ? 'Cours' : 'Compétence'}</span>
-            ${revisionLabel(item.derniere_revision)}
-          </div>
-        </div>
-        <button class="btn btn-sm btn-reviser" data-type="${item.type}" data-id="${item.id}">Réviser aujourd'hui</button>
-      </div>
-    `).join('');
+  renderARevoirList('dashboard-cours-a-revoir', data.coursARevoir, 'cours');
+  renderARevoirList('dashboard-competences-a-revoir', data.competencesARevoir, 'competence');
+}
 
-    arContainer.querySelectorAll('.btn-reviser').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const endpoint = btn.dataset.type === 'cours' ? '/api/cours' : '/api/competences';
-        try {
-          await api(`${endpoint}/${btn.dataset.id}/revision`, { method: 'PATCH' });
-          toast('Révision enregistrée.');
-          loadDashboard();
-        } catch (err) { toast(err.message, true); }
-      });
-    });
+function renderARevoirList(containerId, items, type) {
+  const container = document.getElementById(containerId);
+  const list = items || [];
+  const endpoint = type === 'cours' ? '/api/cours' : '/api/competences';
+
+  if (list.length === 0) {
+    container.innerHTML = `<span class="list-empty" style="padding:0">${type === 'cours' ? 'Aucun cours terminé pour le moment.' : 'Aucune compétence acquise pour le moment.'}</span>`;
+    return;
   }
+
+  container.innerHTML = list.map(item => `
+    <div class="ar-item">
+      <div class="ar-main">
+        <div class="ar-title">${esc(item.nom)}</div>
+        <div class="ar-meta">${revisionLabel(item.derniere_revision)}</div>
+      </div>
+      <button class="btn-icon btn-reviser" data-id="${item.id}" title="Réviser aujourd'hui" aria-label="Réviser aujourd'hui">↻</button>
+    </div>
+  `).join('');
+
+  container.querySelectorAll('.btn-reviser').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      try {
+        await api(`${endpoint}/${btn.dataset.id}/revision`, { method: 'PATCH' });
+        toast('Révision enregistrée.');
+        loadDashboard();
+      } catch (err) { toast(err.message, true); }
+    });
+  });
 }
 
 // ===================== PARCOURS — aperçu visuel & chemin =====================
@@ -258,11 +263,11 @@ function renderParcoursVisuel(parcoursList) {
     const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
     return `
       <button class="pv-card" data-id="${p.id}">
-        <div class="pv-card-title">${esc(p.titre)}</div>
-        <div class="dp-progress-bar"><div class="dp-progress-fill" style="width:${pct}%"></div></div>
         <div class="pv-card-meta">
           <span class="dp-badge ${p.completed ? 'done' : ''}">${p.completed ? 'Terminé' : `${doneCount}/${totalCount}`}</span>
         </div>
+        <div class="dp-progress-bar"><div class="dp-progress-fill" style="width:${pct}%"></div></div>
+        <div class="pv-card-title">${esc(p.titre)}</div>
       </button>
     `;
   }).join('');
@@ -286,6 +291,9 @@ async function openCheminParcours(id) {
 
   const p = await api(`/api/parcours/${id}`);
   document.getElementById('chemin-titre').textContent = p.titre;
+  const descEl = document.getElementById('chemin-description');
+  descEl.textContent = p.description || '';
+  descEl.style.display = p.description ? '' : 'none';
 
   if (p.cours.length === 0) {
     container.innerHTML = '<div class="list-empty">Aucun cours dans ce parcours.</div>';

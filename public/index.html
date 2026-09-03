@@ -65,8 +65,13 @@
       <div class="stats-grid" id="stats-grid"></div>
 
       <div class="dashboard-panel dashboard-panel-full">
-        <div class="panel-title">À revoir</div>
-        <div id="dashboard-a-revoir" class="dashboard-a-revoir-list"></div>
+        <div class="panel-title">Cours à revoir</div>
+        <div id="dashboard-cours-a-revoir" class="dashboard-a-revoir-list"></div>
+      </div>
+
+      <div class="dashboard-panel dashboard-panel-full">
+        <div class="panel-title">Compétences à revoir</div>
+        <div id="dashboard-competences-a-revoir" class="dashboard-a-revoir-list"></div>
       </div>
     </section>
 
@@ -82,8 +87,9 @@
     <!-- PARCOURS — chemin d'un parcours, façon Duolingo -->
     <section class="tab-panel" id="tab-parcours-chemin">
       <button class="btn-back" id="btn-back-parcours-chemin">← Retour aux parcours</button>
-      <div class="panel-header">
+      <div class="panel-header panel-header-column">
         <h1 id="chemin-titre">Parcours</h1>
+        <p class="panel-description" id="chemin-description"></p>
       </div>
       <div id="chemin-container"></div>
     </section>

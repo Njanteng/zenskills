@@ -12,22 +12,24 @@ function ratio(rows, statutKey = 'statut') {
 router.get('/', async (req, res, next) => {
   try {
     const userId = req.userId;
-    const [coursRes, competencesRes, projetsRes, parcoursRes, aRevoirRes] = await Promise.all([
+    const [coursRes, competencesRes, projetsRes, parcoursRes, coursARevoirRes, competencesARevoirRes] = await Promise.all([
       pool.query('SELECT * FROM cours WHERE user_id = $1', [userId]),
       pool.query('SELECT * FROM competences WHERE user_id = $1 ORDER BY LOWER(nom)', [userId]),
       pool.query('SELECT * FROM projets WHERE user_id = $1', [userId]),
       pool.query('SELECT * FROM parcours WHERE user_id = $1 ORDER BY LOWER(titre)', [userId]),
       pool.query(`
-        SELECT id, titre AS nom, 'cours' AS type, derniere_revision
+        SELECT id, titre AS nom, derniere_revision
         FROM cours
         WHERE user_id = $1 AND statut = 1
-          AND (derniere_revision IS NULL OR derniere_revision < CURRENT_DATE - INTERVAL '6 months')
-        UNION ALL
-        SELECT id, nom, 'competence' AS type, derniere_revision
+        ORDER BY derniere_revision ASC NULLS FIRST
+        LIMIT 20
+      `, [userId]),
+      pool.query(`
+        SELECT id, nom, derniere_revision
         FROM competences
         WHERE user_id = $1 AND statut = 1
-          AND (derniere_revision IS NULL OR derniere_revision < CURRENT_DATE - INTERVAL '6 months')
         ORDER BY derniere_revision ASC NULLS FIRST
+        LIMIT 20
       `, [userId])
     ]);
 
@@ -68,7 +70,8 @@ router.get('/', async (req, res, next) => {
       competences: ratio(competencesRes.rows),
       competencesAcquises,
       parcoursList,
-      aRevoir: aRevoirRes.rows
+      coursARevoir: coursARevoirRes.rows,
+      competencesARevoir: competencesARevoirRes.rows
     });
   } catch (err) { next(err); }
 });
