@@ -52,7 +52,14 @@ function revisionLabel(dateStr) {
 
 function showSpinner(containerId) {
   const el = document.getElementById(containerId);
-  if (el) el.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div></div>';
+  // Ne remplace le contenu par un spinner que si le conteneur est vide (premier
+  // chargement). Sur les rechargements suivants, on garde l'ancien contenu
+  // affiché pendant la requête plutôt que de tout faire disparaître d'un coup —
+  // beaucoup moins perturbant visuellement, et le nouveau contenu remplace
+  // l'ancien dès qu'il est prêt de toute façon.
+  if (el && el.children.length === 0) {
+    el.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div></div>';
+  }
 }
 
 // Désactive un bouton de soumission le temps de la requête, avec un libellé "en cours".
@@ -175,12 +182,15 @@ async function refreshAllProjetsCache() {
 
 // ===================== Dashboard =====================
 async function loadDashboard() {
-  document.getElementById('stats-grid').innerHTML = Array(4).fill(`
-    <div class="stat-card">
-      <div class="skeleton" style="height:11px;width:60px;margin-bottom:12px"></div>
-      <div class="skeleton" style="height:26px;width:80px;margin-bottom:12px"></div>
-      <div class="skeleton" style="height:3px;width:100%"></div>
-    </div>`).join('');
+  const statsGrid = document.getElementById('stats-grid');
+  if (statsGrid.children.length === 0) {
+    statsGrid.innerHTML = Array(4).fill(`
+      <div class="stat-card">
+        <div class="skeleton" style="height:11px;width:60px;margin-bottom:12px"></div>
+        <div class="skeleton" style="height:26px;width:80px;margin-bottom:12px"></div>
+        <div class="skeleton" style="height:3px;width:100%"></div>
+      </div>`).join('');
+  }
   showSpinner('dashboard-cours-a-revoir');
   showSpinner('dashboard-competences-a-revoir');
 
@@ -189,7 +199,7 @@ async function loadDashboard() {
   const cards = [
     { label: 'Cours', ...data.cours, clickable: false },
     { label: 'Parcours', ...data.parcours, clickable: true, view: 'parcours-visuel' },
-    { label: 'Projets', ...data.projets, clickable: false },
+    { label: 'Projets', ...data.projets, clickable: true, view: 'projets-badges' },
     { label: 'Compétences', ...data.competences, clickable: true, view: 'competences-badges' }
   ];
 
@@ -206,7 +216,8 @@ async function loadDashboard() {
   document.querySelectorAll('.stat-card-clickable').forEach(card => {
     card.addEventListener('click', () => {
       if (card.dataset.view === 'parcours-visuel') openParcoursVisuel(data);
-      if (card.dataset.view === 'competences-badges') openCompetencesBadges(data);
+      if (card.dataset.view === 'competences-badges') openCompetencesBadges();
+      if (card.dataset.view === 'projets-badges') openProjetsBadges();
     });
   });
 
@@ -284,16 +295,31 @@ document.getElementById('btn-back-parcours-chemin').addEventListener('click', as
   renderParcoursVisuel(data.parcoursList);
 });
 
+let cheminParcoursCache = null;
+
+function isParcoursComplete(p) {
+  const obligatoires = p.cours.filter(c => c.type === 'Obligatoire');
+  return obligatoires.every(c => c.statut === 1);
+}
+
 async function openCheminParcours(id) {
   showPanel('parcours-chemin');
   const container = document.getElementById('chemin-container');
   showSpinner('chemin-container');
 
   const p = await api(`/api/parcours/${id}`);
+  cheminParcoursCache = p;
+
   document.getElementById('chemin-titre').textContent = p.titre;
   const descEl = document.getElementById('chemin-description');
   descEl.textContent = p.description || '';
   descEl.style.display = p.description ? '' : 'none';
+
+  renderCheminPath(p);
+}
+
+function renderCheminPath(p) {
+  const container = document.getElementById('chemin-container');
 
   if (p.cours.length === 0) {
     container.innerHTML = '<div class="list-empty">Aucun cours dans ce parcours.</div>';
@@ -313,36 +339,99 @@ async function openCheminParcours(id) {
   `).join('')}</div>`;
 
   container.querySelectorAll('.chemin-circle').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const nowDone = !btn.classList.contains('done');
-      try {
-        await api(`/api/cours/${btn.dataset.id}/statut`, {
-          method: 'PATCH',
-          body: JSON.stringify({ statut: nowDone ? 1 : 0 })
-        });
-        openCheminParcours(id);
-      } catch (err) { toast(err.message, true); }
-    });
+    btn.addEventListener('click', () => toggleCheminCours(btn.dataset.id));
   });
 }
 
+// Coche/décoche un cours depuis le chemin sans tout recharger : on met juste à
+// jour le cercle concerné et l'état en mémoire, au lieu de refaire un aller-retour
+// réseau complet + reconstruire tout le chemin à chaque clic.
+async function toggleCheminCours(coursId) {
+  const p = cheminParcoursCache;
+  if (!p) return;
+  const cours = p.cours.find(c => String(c.id) === String(coursId));
+  if (!cours) return;
+
+  const wasComplete = isParcoursComplete(p);
+  const nowDone = cours.statut !== 1;
+
+  try {
+    await api(`/api/cours/${coursId}/statut`, {
+      method: 'PATCH',
+      body: JSON.stringify({ statut: nowDone ? 1 : 0 })
+    });
+    cours.statut = nowDone ? 1 : 0;
+
+    const btn = document.querySelector(`.chemin-circle[data-id="${coursId}"]`);
+    if (btn) {
+      btn.classList.toggle('done', cours.statut === 1);
+      btn.title = cours.statut === 1 ? 'Marquer non terminé' : 'Marquer terminé';
+      const idx = p.cours.indexOf(cours);
+      btn.textContent = cours.statut === 1 ? '✓' : String(idx + 1);
+    }
+
+    if (!wasComplete && isParcoursComplete(p)) {
+      celebrateParcoursComplete(p.titre);
+    }
+  } catch (err) { toast(err.message, true); }
+}
+
+function celebrateParcoursComplete(titre) {
+  toast(`🎉 Parcours "${titre}" terminé !`);
+  const path = document.querySelector('.chemin-path');
+  if (path) {
+    path.classList.add('chemin-celebrate');
+    setTimeout(() => path.classList.remove('chemin-celebrate'), 900);
+  }
+}
+
 // ===================== COMPETENCES — tableau de badges =====================
-function openCompetencesBadges(dashboardData) {
+async function openCompetencesBadges() {
   showPanel('competences-badges');
   const board = document.getElementById('badge-board');
-  const acquises = dashboardData.competencesAcquises || [];
-  board.innerHTML = acquises.length === 0
-    ? '<div class="list-empty">Aucune compétence acquise pour le moment.</div>'
-    : acquises.map(k => `
+  showSpinner('badge-board');
+
+  const all = await api('/api/competences/all');
+  board.innerHTML = all.length === 0
+    ? '<div class="list-empty">Aucune compétence pour le moment.</div>'
+    : all.map(k => k.statut === 1 ? `
         <div class="badge-item">
           <div class="badge-medal">🏅</div>
           <div class="badge-name">${esc(k.nom)}</div>
           ${k.niveau_maitrise ? `<div class="stars-mini">${starsDisplay(k.niveau_maitrise)}</div>` : ''}
         </div>
+      ` : `
+        <div class="badge-item badge-locked" title="Pas encore acquise">
+          <div class="badge-medal">🔒</div>
+          <div class="badge-name">${esc(k.nom)}</div>
+        </div>
       `).join('');
 }
 
 document.getElementById('btn-back-competences-badges').addEventListener('click', () => switchTab('dashboard'));
+
+async function openProjetsBadges() {
+  showPanel('projets-badges');
+  const board = document.getElementById('projets-badge-board');
+  showSpinner('projets-badge-board');
+
+  const all = await api('/api/projets/all');
+  board.innerHTML = all.length === 0
+    ? '<div class="list-empty">Aucun projet pour le moment.</div>'
+    : all.map(p => p.statut === 1 ? `
+        <div class="badge-item">
+          <div class="badge-medal">🏆</div>
+          <div class="badge-name">${esc(p.titre)}</div>
+        </div>
+      ` : `
+        <div class="badge-item badge-locked" title="Pas encore terminé">
+          <div class="badge-medal">🔒</div>
+          <div class="badge-name">${esc(p.titre)}</div>
+        </div>
+      `).join('');
+}
+
+document.getElementById('btn-back-projets-badges').addEventListener('click', () => switchTab('dashboard'));
 
 // ===================== COURS =====================
 function coursQueryString() {
@@ -1359,13 +1448,60 @@ function debounce(fn, delay = 300) {
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), delay); };
 }
 
-// ===================== Auth (session, déconnexion) =====================
+// ===================== Auth (session, déconnexion, mot de passe) =====================
 document.getElementById('btn-logout').addEventListener('click', async () => {
   try {
     await fetch('/api/auth/logout', { method: 'POST' });
   } finally {
     window.location.href = '/login.html';
   }
+});
+
+document.getElementById('btn-change-password').addEventListener('click', () => {
+  openModal(`
+    <h2>Changer le mot de passe</h2>
+    <form id="form-change-password">
+      <div class="field">
+        <label>Mot de passe actuel</label>
+        <input type="password" name="currentPassword" autocomplete="current-password" required>
+      </div>
+      <div class="field">
+        <label>Nouveau mot de passe (8 caractères minimum)</label>
+        <input type="password" name="newPassword" autocomplete="new-password" minlength="8" required>
+      </div>
+      <div class="field">
+        <label>Confirmer le nouveau mot de passe</label>
+        <input type="password" name="confirmPassword" autocomplete="new-password" minlength="8" required>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="btn-cancel-password">Annuler</button>
+        <button type="submit" class="btn btn-primary">Changer le mot de passe</button>
+      </div>
+    </form>
+  `);
+
+  document.getElementById('btn-cancel-password').addEventListener('click', closeModal);
+  document.getElementById('form-change-password').addEventListener('submit', async e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const currentPassword = fd.get('currentPassword');
+    const newPassword = fd.get('newPassword');
+    const confirmPassword = fd.get('confirmPassword');
+
+    if (newPassword !== confirmPassword) {
+      toast('Les deux mots de passe ne correspondent pas.', true);
+      return;
+    }
+
+    try {
+      await api('/api/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify({ currentPassword, newPassword })
+      });
+      toast('Mot de passe changé avec succès.');
+      closeModal();
+    } catch (err) { toast(err.message, true); }
+  });
 });
 
 // ===================== Init =====================

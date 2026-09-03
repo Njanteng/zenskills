@@ -30,5 +30,8 @@ jobs:
           done
           exit $status
 
+      - name: Run tests
+        run: npm test
+
       - name: Audit dependencies (non-blocking)
         run: npm audit --audit-level=high || true

@@ -59,16 +59,11 @@ router.get('/', async (req, res, next) => {
       return { id: p.id, titre: p.titre, description: p.description, completed, cours };
     });
 
-    const competencesAcquises = competencesRes.rows
-      .filter(k => k.statut === 1)
-      .map(k => ({ id: k.id, nom: k.nom, niveau_maitrise: k.niveau_maitrise }));
-
     res.json({
       cours: ratio(coursRes.rows),
       parcours: { done: parcoursList.filter(p => p.completed).length, total: parcoursList.length },
       projets: ratio(projetsRes.rows),
       competences: ratio(competencesRes.rows),
-      competencesAcquises,
       parcoursList,
       coursARevoir: coursARevoirRes.rows,
       competencesARevoir: competencesARevoirRes.rows

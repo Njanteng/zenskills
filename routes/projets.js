@@ -24,7 +24,7 @@ router.get('/', async (req, res, next) => {
 
 router.get('/all', async (req, res, next) => {
   try {
-    const { rows } = await pool.query('SELECT id, titre FROM projets WHERE user_id = $1 ORDER BY LOWER(titre)', [req.userId]);
+    const { rows } = await pool.query('SELECT id, titre, statut FROM projets WHERE user_id = $1 ORDER BY LOWER(titre)', [req.userId]);
     res.json(rows);
   } catch (err) { next(err); }
 });

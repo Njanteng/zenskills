@@ -1,7 +1,8 @@
-// Crée un compte utilisateur. Aucune inscription publique dans l'app —
-// c'est vous qui créez les comptes depuis votre machine :
-//   node create-user.js alice@example.com
-// (le mot de passe est demandé ensuite, saisie masquée — jamais dans l'historique du shell)
+// Réinitialise le mot de passe d'un compte existant (perte de mot de passe).
+// À la différence de recréer le compte avec create-user.js, ceci conserve
+// toutes les données de la personne (même user_id) :
+//   node reset-password.js alice@example.com
+// (le nouveau mot de passe est demandé ensuite, saisie masquée)
 require('dotenv').config();
 const { Client } = require('pg');
 const bcrypt = require('bcryptjs');
@@ -10,7 +11,7 @@ const { promptPassword } = require('./lib/promptPassword');
 const [, , email] = process.argv;
 
 if (!email) {
-  console.error('Usage : node create-user.js <email>');
+  console.error('Usage : node reset-password.js <email>');
   process.exit(1);
 }
 
@@ -23,12 +24,12 @@ if (!connectionString) {
 const client = new Client({ connectionString, ssl: { rejectUnauthorized: false } });
 
 (async () => {
-  const password = await promptPassword('Mot de passe (au moins 8 caractères) : ');
+  const password = await promptPassword('Nouveau mot de passe (au moins 8 caractères) : ');
   if (password.length < 8) {
     console.error('❌ Le mot de passe doit faire au moins 8 caractères.');
     process.exit(1);
   }
-  const confirm = await promptPassword('Confirmez le mot de passe : ');
+  const confirm = await promptPassword('Confirmez le nouveau mot de passe : ');
   if (confirm !== password) {
     console.error('❌ Les deux saisies ne correspondent pas.');
     process.exit(1);
@@ -37,17 +38,18 @@ const client = new Client({ connectionString, ssl: { rejectUnauthorized: false }
   try {
     await client.connect();
     const hash = await bcrypt.hash(password, 12);
-    await client.query(
-      'INSERT INTO users (email, password_hash) VALUES ($1, $2)',
-      [email.trim().toLowerCase(), hash]
+    const result = await client.query(
+      'UPDATE users SET password_hash = $1 WHERE email = $2',
+      [hash, email.trim().toLowerCase()]
     );
-    console.log(`✅ Compte créé pour ${email}. Cette personne peut maintenant se connecter sur /login.html.`);
-  } catch (err) {
-    if (err.code === '23505') {
-      console.error('❌ Un compte existe déjà avec cet email.');
+    if (result.rowCount === 0) {
+      console.error(`❌ Aucun compte trouvé pour ${email}.`);
+      process.exitCode = 1;
     } else {
-      console.error('❌ Erreur :', err.message);
+      console.log(`✅ Mot de passe réinitialisé pour ${email}. Ses données sont conservées.`);
     }
+  } catch (err) {
+    console.error('❌ Erreur :', err.message);
     process.exitCode = 1;
   } finally {
     await client.end();

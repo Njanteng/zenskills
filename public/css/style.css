@@ -265,8 +265,12 @@ button, input, select, textarea {
   padding: 20px;
 }
 
-.dashboard-panel-full { margin-bottom: 14px; }
-.dashboard-panel-full:last-child { margin-bottom: 0; }
+.dashboard-a-revoir-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  gap: 14px;
+  align-items: start;
+}
 
 .panel-title {
   font-family: var(--font-display);
@@ -472,6 +476,16 @@ button, input, select, textarea {
 
 .chemin-titre { font-weight: 600; font-size: 13px; margin-bottom: 4px; }
 
+@keyframes chemin-celebrate-pulse {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
+
+.chemin-celebrate .chemin-circle.done {
+  animation: chemin-celebrate-pulse 0.45s ease-in-out 2;
+}
+
 /* Compétences — tableau de badges */
 .badge-board {
   display: grid;
@@ -497,6 +511,13 @@ button, input, select, textarea {
 }
 
 .badge-name { font-size: 13px; font-weight: 600; }
+
+.badge-locked {
+  opacity: 0.45;
+}
+
+.badge-locked .badge-medal { filter: grayscale(1); }
+.badge-locked .badge-name { color: var(--text-faint); font-weight: 500; }
 
 /* Panel header */
 .panel-header {
