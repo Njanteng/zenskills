@@ -46,6 +46,7 @@
       <a class="btn btn-sm" id="btn-export" href="/api/export">⇩ Exporter (.xlsx)</a>
       <button class="btn btn-sm" id="btn-import">⇧ Importer (.xlsx)</button>
       <input type="file" id="import-file-input" accept=".xlsx" hidden>
+      <button class="btn btn-sm" id="btn-change-password">Changer le mot de passe</button>
       <button class="btn btn-sm btn-logout" id="btn-logout">Se déconnecter</button>
     </div>
   </aside>
@@ -64,14 +65,16 @@
 
       <div class="stats-grid" id="stats-grid"></div>
 
-      <div class="dashboard-panel dashboard-panel-full">
-        <div class="panel-title">Cours à revoir</div>
-        <div id="dashboard-cours-a-revoir" class="dashboard-a-revoir-list"></div>
-      </div>
+      <div class="dashboard-a-revoir-columns">
+        <div class="dashboard-panel">
+          <div class="panel-title">Cours à revoir</div>
+          <div id="dashboard-cours-a-revoir" class="dashboard-a-revoir-list"></div>
+        </div>
 
-      <div class="dashboard-panel dashboard-panel-full">
-        <div class="panel-title">Compétences à revoir</div>
-        <div id="dashboard-competences-a-revoir" class="dashboard-a-revoir-list"></div>
+        <div class="dashboard-panel">
+          <div class="panel-title">Compétences à revoir</div>
+          <div id="dashboard-competences-a-revoir" class="dashboard-a-revoir-list"></div>
+        </div>
       </div>
     </section>
 
@@ -98,9 +101,18 @@
     <section class="tab-panel" id="tab-competences-badges">
       <button class="btn-back" id="btn-back-competences-badges">← Retour au tableau de bord</button>
       <div class="panel-header">
-        <h1>Compétences acquises</h1>
+        <h1>Compétences</h1>
       </div>
       <div class="badge-board" id="badge-board"></div>
+    </section>
+
+    <!-- PROJETS — tableau de badges (ouvert depuis la carte PROJETS du dashboard) -->
+    <section class="tab-panel" id="tab-projets-badges">
+      <button class="btn-back" id="btn-back-projets-badges">← Retour au tableau de bord</button>
+      <div class="panel-header">
+        <h1>Projets</h1>
+      </div>
+      <div class="badge-board" id="projets-badge-board"></div>
     </section>
 
     <!-- COURS -->

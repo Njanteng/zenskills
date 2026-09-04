@@ -2,10 +2,11 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const { pool } = require('../db');
 const { setSessionCookie, clearSessionCookie, requireAuth, COOKIE_NAME, verifySession } = require('../lib/auth');
+const { loginRateLimit } = require('../lib/rateLimit');
 
 const router = express.Router();
 
-router.post('/login', async (req, res, next) => {
+router.post('/login', loginRateLimit, async (req, res, next) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis' });
@@ -38,6 +39,31 @@ router.get('/me', async (req, res) => {
   } catch (err) {
     res.status(401).json({ error: 'Session invalide ou expirée' });
   }
+});
+
+// POST /api/auth/change-password — changement de mot de passe en libre-service,
+// exige d'être connecté ET de fournir le mot de passe actuel.
+router.post('/change-password', requireAuth, async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Mot de passe actuel et nouveau mot de passe requis' });
+    }
+    if (newPassword.length < 8) {
+      return res.status(400).json({ error: 'Le nouveau mot de passe doit faire au moins 8 caractères' });
+    }
+
+    const { rows } = await pool.query('SELECT * FROM users WHERE id = $1', [req.userId]);
+    const user = rows[0];
+    if (!user) return res.status(401).json({ error: 'Non authentifié' });
+
+    const valid = await bcrypt.compare(currentPassword, user.password_hash);
+    if (!valid) return res.status(400).json({ error: 'Mot de passe actuel incorrect' });
+
+    const newHash = await bcrypt.hash(newPassword, 12);
+    await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [newHash, req.userId]);
+    res.status(204).end();
+  } catch (err) { next(err); }
 });
 
 module.exports = router;

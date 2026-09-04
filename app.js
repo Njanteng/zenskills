@@ -15,6 +15,11 @@ const backupRoutes = require('./routes/backup');
 
 const app = express();
 
+// Vercel place l'app derrière un proxy : sans ça, req.ip renverrait l'IP interne
+// de Vercel plutôt que celle du visiteur, ce qui casserait la limitation de
+// tentatives de connexion (tout le monde partagerait le même compteur).
+app.set('trust proxy', 1);
+
 app.use(express.json());
 app.use(cookieParser());
 
