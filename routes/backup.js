@@ -190,17 +190,21 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
     await client.query('DELETE FROM projets WHERE user_id = $1', [userId]);
 
     const coursIdByTitre = new Map();
+    const coursStatusByTitre = new Map();
     for (const r of sheets.Cours) {
       const titre = String(r.titre || '').trim();
       if (!titre) continue;
       const statut = truthy(r.statut) ? 1 : 0;
       const categorie = CATEGORIES.includes(r.categorie) ? r.categorie : CATEGORIES[0];
       const format = FORMATS.includes(r.format) ? r.format : FORMATS[0];
-      const niveau = validNiveau(statut, r.niveau_maitrise);
-      const derniereRevision = statut ? parseDate(r.derniere_revision) : null;
+      coursStatusByTitre.set(titre, {
+        statut,
+        niveau: validNiveau(statut, r.niveau_maitrise),
+        derniereRevision: statut ? parseDate(r.derniere_revision) : null
+      });
       const insertRes = await client.query(
         'INSERT INTO cours (user_id, titre, description, statut, categorie, format, niveau_maitrise, derniere_revision) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id',
-        [userId, titre, r.description || '', statut, categorie, format, niveau, derniereRevision]
+        [userId, titre, r.description || '', 0, categorie, format, null, null]
       );
       coursIdByTitre.set(titre, insertRes.rows[0].id);
     }
@@ -251,6 +255,20 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
       await client.query(
         'INSERT INTO parcours_cours (parcours_id, cours_id, type, position) VALUES ($1,$2,$3,$4)',
         [parcoursId, coursId, type, position]
+      );
+    }
+
+    for (const [titre, saved] of coursStatusByTitre) {
+      if (!saved.statut) continue;
+      const coursId = coursIdByTitre.get(titre);
+      const { rows } = await client.query(
+        'SELECT 1 FROM parcours_cours pc JOIN parcours p ON p.id = pc.parcours_id WHERE pc.cours_id = $1 AND p.user_id = $2 LIMIT 1',
+        [coursId, userId]
+      );
+      if (rows.length === 0) continue;
+      await client.query(
+        'UPDATE cours SET statut = 1, niveau_maitrise = $1, derniere_revision = $2 WHERE id = $3 AND user_id = $4',
+        [saved.niveau, saved.derniereRevision, coursId, userId]
       );
     }
 

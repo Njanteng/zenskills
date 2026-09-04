@@ -31,11 +31,11 @@ router.get('/all', async (req, res, next) => {
 
 router.post('/', async (req, res, next) => {
   try {
-    const { titre, description = '', statut = 0 } = req.body;
+    const { titre, description = '' } = req.body;
     if (!titre || !titre.trim()) return res.status(400).json({ error: 'Le titre est requis' });
     const insertRes = await pool.query(
       'INSERT INTO projets (user_id, titre, description, statut) VALUES ($1, $2, $3, $4) RETURNING id',
-      [req.userId, titre.trim(), description, statut ? 1 : 0]
+      [req.userId, titre.trim(), description, 0]
     );
     const { rows } = await pool.query('SELECT * FROM projets WHERE id = $1', [insertRes.rows[0].id]);
     res.status(201).json(rows[0]);
@@ -47,11 +47,11 @@ router.put('/:id', async (req, res, next) => {
     const id = req.params.id;
     const existing = await pool.query('SELECT * FROM projets WHERE id = $1 AND user_id = $2', [id, req.userId]);
     if (existing.rows.length === 0) return res.status(404).json({ error: 'Projet introuvable' });
-    const { titre, description = '', statut } = req.body;
+    const { titre, description = '' } = req.body;
     if (!titre || !titre.trim()) return res.status(400).json({ error: 'Le titre est requis' });
     await pool.query(
       'UPDATE projets SET titre = $1, description = $2, statut = $3 WHERE id = $4 AND user_id = $5',
-      [titre.trim(), description, statut ? 1 : 0, id, req.userId]
+      [titre.trim(), description, existing.rows[0].statut, id, req.userId]
     );
     const { rows } = await pool.query('SELECT * FROM projets WHERE id = $1', [id]);
     res.json(rows[0]);

@@ -476,6 +476,35 @@ button, input, select, textarea {
 
 .chemin-titre { font-weight: 600; font-size: 13px; margin-bottom: 4px; }
 
+.visual-stars {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  color: var(--text-faint);
+}
+
+.chemin-stars { margin-top: 3px; }
+
+.visual-star {
+  border: 0;
+  padding: 0 1px;
+  background: none;
+  color: var(--text-faint);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.visual-star:hover,
+.visual-star.filled { color: var(--gold); }
+
+.visual-star:focus-visible,
+.badge-item-clickable:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
 @keyframes chemin-celebrate-pulse {
   0% { transform: scale(1); }
   30% { transform: scale(1.03); }
@@ -504,6 +533,22 @@ button, input, select, textarea {
   gap: 8px;
   text-align: center;
 }
+
+.badge-item-clickable {
+  width: 100%;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.1s;
+}
+
+.badge-item-clickable:hover {
+  border-color: var(--accent);
+  background: var(--bg-hover);
+  transform: translateY(-2px);
+}
+
+.badge-stars { min-height: 14px; }
 
 .badge-medal {
   font-size: 32px;
