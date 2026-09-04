@@ -63,10 +63,10 @@ router.get('/all', async (req, res, next) => {
 
 router.post('/', async (req, res, next) => {
   try {
-    const { nom, description = '', statut = 0, niveau_maitrise } = req.body;
+    const { nom, description = '' } = req.body;
     if (!nom || !nom.trim()) return res.status(400).json({ error: 'Le nom est requis' });
-    const finalStatut = statut ? 1 : 0;
-    const finalNiveau = normalizeNiveau(finalStatut, niveau_maitrise);
+    const finalStatut = 0;
+    const finalNiveau = null;
     const insertRes = await pool.query(
       'INSERT INTO competences (user_id, nom, description, statut, niveau_maitrise) VALUES ($1, $2, $3, $4, $5) RETURNING id',
       [req.userId, nom.trim(), description, finalStatut, finalNiveau]
@@ -82,10 +82,10 @@ router.put('/:id', async (req, res, next) => {
     const id = req.params.id;
     const existing = await pool.query('SELECT * FROM competences WHERE id = $1 AND user_id = $2', [id, req.userId]);
     if (existing.rows.length === 0) return res.status(404).json({ error: 'Compétence introuvable' });
-    const { nom, description = '', statut, niveau_maitrise } = req.body;
+    const { nom, description = '' } = req.body;
     if (!nom || !nom.trim()) return res.status(400).json({ error: 'Le nom est requis' });
-    const finalStatut = statut ? 1 : 0;
-    const finalNiveau = normalizeNiveau(finalStatut, niveau_maitrise);
+    const finalStatut = existing.rows[0].statut;
+    const finalNiveau = existing.rows[0].niveau_maitrise;
     await pool.query(
       'UPDATE competences SET nom = $1, description = $2, statut = $3, niveau_maitrise = $4 WHERE id = $5 AND user_id = $6',
       [nom.trim(), description, finalStatut, finalNiveau, id, req.userId]
@@ -103,7 +103,8 @@ router.patch('/:id/statut', async (req, res, next) => {
     if (existing.rows.length === 0) return res.status(404).json({ error: 'Compétence introuvable' });
     const finalStatut = req.body.statut ? 1 : 0;
     const finalNiveau = finalStatut ? existing.rows[0].niveau_maitrise : null;
-    await pool.query('UPDATE competences SET statut = $1, niveau_maitrise = $2 WHERE id = $3 AND user_id = $4', [finalStatut, finalNiveau, id, req.userId]);
+    const finalRevision = finalStatut ? existing.rows[0].derniere_revision : null;
+    await pool.query('UPDATE competences SET statut = $1, niveau_maitrise = $2, derniere_revision = $3 WHERE id = $4 AND user_id = $5', [finalStatut, finalNiveau, finalRevision, id, req.userId]);
     const { rows } = await pool.query('SELECT * FROM competences WHERE id = $1', [id]);
     const [withCours] = await attachCours(rows, req.userId);
     res.json(withCours);

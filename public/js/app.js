@@ -334,12 +334,21 @@ function renderCheminPath(p) {
       <div class="chemin-label">
         <div class="chemin-titre">${esc(c.titre)}</div>
         <span class="tag ${c.type === 'Optionnel' ? '' : 'competence'}">${c.type}</span>
+        ${c.statut === 1 ? `<div class="visual-stars chemin-stars" data-id="${c.id}">${[1, 2, 3, 4, 5].map(n => `<button type="button" class="visual-star ${n <= (c.niveau_maitrise || 0) ? 'filled' : ''}" data-value="${n}" title="${n} étoile${n > 1 ? 's' : ''}">★</button>`).join('')}</div>` : ''}
       </div>
     </div>
   `).join('')}</div>`;
 
   container.querySelectorAll('.chemin-circle').forEach(btn => {
     btn.addEventListener('click', () => toggleCheminCours(btn.dataset.id));
+  });
+  container.querySelectorAll('.chemin-stars').forEach(stars => {
+    stars.querySelectorAll('.visual-star').forEach(star => {
+      star.addEventListener('click', event => {
+        event.stopPropagation();
+        setCheminCoursNiveau(stars.dataset.id, Number(star.dataset.value));
+      });
+    });
   });
 }
 
@@ -361,18 +370,26 @@ async function toggleCheminCours(coursId) {
       body: JSON.stringify({ statut: nowDone ? 1 : 0 })
     });
     cours.statut = nowDone ? 1 : 0;
-
-    const btn = document.querySelector(`.chemin-circle[data-id="${coursId}"]`);
-    if (btn) {
-      btn.classList.toggle('done', cours.statut === 1);
-      btn.title = cours.statut === 1 ? 'Marquer non terminé' : 'Marquer terminé';
-      const idx = p.cours.indexOf(cours);
-      btn.textContent = cours.statut === 1 ? '✓' : String(idx + 1);
-    }
+    if (!nowDone) cours.niveau_maitrise = null;
+    renderCheminPath(p);
 
     if (!wasComplete && isParcoursComplete(p)) {
       celebrateParcoursComplete(p.titre);
     }
+  } catch (err) { toast(err.message, true); }
+}
+
+async function setCheminCoursNiveau(coursId, niveau) {
+  const p = cheminParcoursCache;
+  const cours = p?.cours.find(c => String(c.id) === String(coursId));
+  if (!cours || cours.statut !== 1) return;
+  try {
+    await api(`/api/cours/${coursId}/niveau`, {
+      method: 'PATCH',
+      body: JSON.stringify({ niveau_maitrise: niveau })
+    });
+    cours.niveau_maitrise = niveau;
+    renderCheminPath(p);
   } catch (err) { toast(err.message, true); }
 }
 
@@ -395,17 +412,40 @@ async function openCompetencesBadges() {
   board.innerHTML = all.length === 0
     ? '<div class="list-empty">Aucune compétence pour le moment.</div>'
     : all.map(k => k.statut === 1 ? `
-        <div class="badge-item">
+        <button type="button" class="badge-item badge-item-clickable" data-id="${k.id}" title="Cliquer pour retirer l'acquisition">
           <div class="badge-medal">🏅</div>
           <div class="badge-name">${esc(k.nom)}</div>
-          ${k.niveau_maitrise ? `<div class="stars-mini">${starsDisplay(k.niveau_maitrise)}</div>` : ''}
-        </div>
+          <div class="visual-stars badge-stars">${[1, 2, 3, 4, 5].map(n => `<span class="visual-star ${n <= (k.niveau_maitrise || 0) ? 'filled' : ''}" data-value="${n}">★</span>`).join('')}</div>
+        </button>
       ` : `
-        <div class="badge-item badge-locked" title="Pas encore acquise">
+        <button type="button" class="badge-item badge-locked badge-item-clickable" data-id="${k.id}" title="Cliquer pour acquérir">
           <div class="badge-medal">🔒</div>
           <div class="badge-name">${esc(k.nom)}</div>
-        </div>
+        </button>
       `).join('');
+
+  board.querySelectorAll('.badge-item-clickable').forEach(badge => {
+    badge.addEventListener('click', async event => {
+      const star = event.target.closest('.visual-star');
+      const item = all.find(k => String(k.id) === badge.dataset.id);
+      if (!item) return;
+      if (star) {
+        event.stopPropagation();
+        try {
+          await api(`/api/competences/${item.id}/niveau`, { method: 'PATCH', body: JSON.stringify({ niveau_maitrise: Number(star.dataset.value) }) });
+          item.niveau_maitrise = Number(star.dataset.value);
+          openCompetencesBadges();
+        } catch (err) { toast(err.message, true); }
+        return;
+      }
+      try {
+        await api(`/api/competences/${item.id}/statut`, { method: 'PATCH', body: JSON.stringify({ statut: item.statut ? 0 : 1 }) });
+        item.statut = item.statut ? 0 : 1;
+        if (!item.statut) item.niveau_maitrise = null;
+        openCompetencesBadges();
+      } catch (err) { toast(err.message, true); }
+    });
+  });
 }
 
 document.getElementById('btn-back-competences-badges').addEventListener('click', () => switchTab('dashboard'));
@@ -419,16 +459,28 @@ async function openProjetsBadges() {
   board.innerHTML = all.length === 0
     ? '<div class="list-empty">Aucun projet pour le moment.</div>'
     : all.map(p => p.statut === 1 ? `
-        <div class="badge-item">
+        <button type="button" class="badge-item badge-item-clickable" data-id="${p.id}" title="Cliquer pour retirer le statut terminé">
           <div class="badge-medal">🏆</div>
           <div class="badge-name">${esc(p.titre)}</div>
-        </div>
+        </button>
       ` : `
-        <div class="badge-item badge-locked" title="Pas encore terminé">
+        <button type="button" class="badge-item badge-locked badge-item-clickable" data-id="${p.id}" title="Cliquer pour terminer">
           <div class="badge-medal">🔒</div>
           <div class="badge-name">${esc(p.titre)}</div>
-        </div>
+        </button>
       `).join('');
+
+  board.querySelectorAll('.badge-item-clickable').forEach(badge => {
+    badge.addEventListener('click', async () => {
+      const item = all.find(p => String(p.id) === badge.dataset.id);
+      if (!item) return;
+      try {
+        await api(`/api/projets/${item.id}/statut`, { method: 'PATCH', body: JSON.stringify({ statut: item.statut ? 0 : 1 }) });
+        item.statut = item.statut ? 0 : 1;
+        openProjetsBadges();
+      } catch (err) { toast(err.message, true); }
+    });
+  });
 }
 
 document.getElementById('btn-back-projets-badges').addEventListener('click', () => switchTab('dashboard'));
@@ -442,7 +494,6 @@ function coursQueryString() {
   if (f.type) params.set('type', f.type);
   if (f.categorie) params.set('categorie', f.categorie);
   if (f.format) params.set('format', f.format);
-  if (f.niveau) params.set('niveau', f.niveau);
   if (f.competence) params.set('competence', f.competence);
   params.set('page', state.page.cours);
   return params.toString();
@@ -461,14 +512,12 @@ function renderCoursList(res) {
   } else {
     list.innerHTML = res.data.map(c => `
       <div class="list-item">
-        <input type="checkbox" class="list-item-checkbox cours-toggle" data-id="${c.id}" ${c.statut === 1 ? 'checked' : ''}>
         <div class="list-item-main">
           <div class="list-item-title ${c.statut === 1 ? 'done' : ''}">${esc(c.titre)}</div>
           ${c.description ? `<div class="list-item-desc">${esc(c.description)}</div>` : ''}
           <div class="tag-row">
             <span class="tag category">${esc(c.categorie)}</span>
             <span class="tag format">${esc(c.format)}</span>
-            ${c.niveau_maitrise ? `<span class="tag niveau">${starsDisplay(c.niveau_maitrise)}</span>` : ''}
             <span class="tag nb-parcours">${c.nb_parcours} parcours</span>
             ${c.statut === 1 ? `<span class="tag">${revisionLabel(c.derniere_revision)}</span>` : ''}
             ${c.competences.map(k => `<span class="tag competence">${esc(k.nom)}</span>`).join('')}
@@ -484,17 +533,6 @@ function renderCoursList(res) {
   }
   renderPagination('cours', res);
 
-  list.querySelectorAll('.cours-toggle').forEach(cb => {
-    cb.addEventListener('change', async () => {
-      try {
-        await api(`/api/cours/${cb.dataset.id}/statut`, {
-          method: 'PATCH',
-          body: JSON.stringify({ statut: cb.checked ? 1 : 0 })
-        });
-        loadCours();
-      } catch (err) { toast(err.message, true); }
-    });
-  });
   list.querySelectorAll('.btn-reviser-cours').forEach(b => {
     b.addEventListener('click', async () => {
       try {
@@ -544,8 +582,6 @@ async function openCoursModal(id) {
   if (editing) openModal('<div class="spinner-wrap"><div class="spinner"></div></div>');
   const cours = editing ? await api(`/api/cours/${id}`) : null;
   const selectedCompIds = new Set((cours?.competences || []).map(c => c.id));
-  const initialNiveau = cours?.niveau_maitrise || 0;
-
   openModal(`
     <h2>${editing ? 'Modifier le cours' : 'Nouveau cours'}</h2>
     <form id="form-cours">
@@ -581,15 +617,6 @@ async function openCoursModal(id) {
             `).join('')}
         </div>
       </div>
-      <div class="field">
-        <label><input type="checkbox" name="statut" ${cours?.statut === 1 ? 'checked' : ''}> Marquer comme terminé</label>
-      </div>
-      <div class="field niveau-field ${cours?.statut === 1 ? 'visible' : ''}" id="niveau-field">
-        <label>Niveau de maîtrise</label>
-        <div class="star-picker" id="star-picker" data-value="${initialNiveau}">
-          ${[1, 2, 3, 4, 5].map(n => `<span class="star ${n <= initialNiveau ? 'filled' : ''}" data-value="${n}">★</span>`).join('')}
-        </div>
-      </div>
       <div class="modal-actions">
         <button type="button" class="btn" id="btn-cancel">Annuler</button>
         <button type="submit" class="btn btn-primary">${editing ? 'Enregistrer' : 'Créer'}</button>
@@ -598,34 +625,15 @@ async function openCoursModal(id) {
   `);
 
   const form = document.getElementById('form-cours');
-  const statutCheckbox = form.querySelector('[name=statut]');
-  const niveauField = document.getElementById('niveau-field');
-  const starPicker = document.getElementById('star-picker');
-
-  function setStars(val) {
-    starPicker.dataset.value = val;
-    starPicker.querySelectorAll('.star').forEach(s => s.classList.toggle('filled', Number(s.dataset.value) <= val));
-  }
-  starPicker.querySelectorAll('.star').forEach(s => {
-    s.addEventListener('click', () => setStars(Number(s.dataset.value)));
-  });
-  statutCheckbox.addEventListener('change', () => {
-    niveauField.classList.toggle('visible', statutCheckbox.checked);
-    if (!statutCheckbox.checked) setStars(0);
-  });
-
   document.getElementById('btn-cancel').addEventListener('click', closeModal);
   form.addEventListener('submit', async e => {
     e.preventDefault();
     const fd = new FormData(form);
-    const niveauValue = Number(starPicker.dataset.value) || null;
     const payload = {
       titre: fd.get('titre'),
       description: fd.get('description'),
       categorie: fd.get('categorie'),
       format: fd.get('format'),
-      statut: fd.get('statut') ? 1 : 0,
-      niveau_maitrise: fd.get('statut') ? niveauValue : null,
       competences: fd.getAll('competence').map(Number)
     };
     const submitBtn = form.querySelector('.btn-primary');
@@ -662,9 +670,6 @@ document.getElementById('filter-cours-categorie').addEventListener('change', e =
 });
 document.getElementById('filter-cours-format').addEventListener('change', e => {
   state.filters.cours.format = e.target.value; state.page.cours = 1; loadCours();
-});
-document.getElementById('filter-cours-niveau').addEventListener('change', e => {
-  state.filters.cours.niveau = e.target.value; state.page.cours = 1; loadCours();
 });
 document.getElementById('filter-cours-competence').addEventListener('change', e => {
   state.filters.cours.competence = e.target.value; state.page.cours = 1; loadCours();
@@ -938,12 +943,10 @@ function renderCompetencesList(res) {
   } else {
     list.innerHTML = res.data.map(k => `
       <div class="list-item">
-        <input type="checkbox" class="list-item-checkbox competence-toggle" data-id="${k.id}" ${k.statut === 1 ? 'checked' : ''}>
         <div class="list-item-main">
           <div class="list-item-title ${k.statut === 1 ? 'done' : ''}">${esc(k.nom)}</div>
           ${k.description ? `<div class="list-item-desc">${esc(k.description)}</div>` : ''}
           <div class="tag-row">
-            ${k.niveau_maitrise ? `<span class="tag niveau">${starsDisplay(k.niveau_maitrise)}</span>` : ''}
             ${k.statut === 1 ? `<span class="tag">${revisionLabel(k.derniere_revision)}</span>` : ''}
             ${k.cours.map(c => `<span class="tag">${esc(c.titre)}</span>`).join('') || '<span class="tag">Aucun cours associé</span>'}
           </div>
@@ -958,18 +961,6 @@ function renderCompetencesList(res) {
   }
   renderPagination('competences', res);
 
-  list.querySelectorAll('.competence-toggle').forEach(cb => {
-    cb.addEventListener('change', async () => {
-      try {
-        await api(`/api/competences/${cb.dataset.id}/statut`, {
-          method: 'PATCH',
-          body: JSON.stringify({ statut: cb.checked ? 1 : 0 })
-        });
-        toast('Compétence mise à jour dans tous les cours associés.');
-        loadCompetences();
-      } catch (err) { toast(err.message, true); }
-    });
-  });
   list.querySelectorAll('.btn-reviser-competence').forEach(b => {
     b.addEventListener('click', async () => {
       try {
@@ -996,8 +987,6 @@ async function deleteCompetence(id) {
 async function openCompetenceModal(id) {
   const editing = !!id;
   const comp = editing ? state.allCompetences.find(c => c.id === Number(id)) : null;
-  const initialNiveau = comp?.niveau_maitrise || 0;
-
   openModal(`
     <h2>${editing ? 'Modifier la compétence' : 'Nouvelle compétence'}</h2>
     <form id="form-competence">
@@ -1009,15 +998,6 @@ async function openCompetenceModal(id) {
         <label>Description</label>
         <textarea name="description">${esc(comp?.description || '')}</textarea>
       </div>
-      <div class="field">
-        <label><input type="checkbox" name="statut" ${comp?.statut === 1 ? 'checked' : ''}> Marquer comme acquise</label>
-      </div>
-      <div class="field niveau-field ${comp?.statut === 1 ? 'visible' : ''}" id="niveau-field">
-        <label>Niveau de maîtrise</label>
-        <div class="star-picker" id="star-picker" data-value="${initialNiveau}">
-          ${[1, 2, 3, 4, 5].map(n => `<span class="star ${n <= initialNiveau ? 'filled' : ''}" data-value="${n}">★</span>`).join('')}
-        </div>
-      </div>
       <div class="modal-actions">
         <button type="button" class="btn" id="btn-cancel">Annuler</button>
         <button type="submit" class="btn btn-primary">${editing ? 'Enregistrer' : 'Créer'}</button>
@@ -1026,32 +1006,13 @@ async function openCompetenceModal(id) {
   `);
 
   const form = document.getElementById('form-competence');
-  const statutCheckbox = form.querySelector('[name=statut]');
-  const niveauField = document.getElementById('niveau-field');
-  const starPicker = document.getElementById('star-picker');
-
-  function setStars(val) {
-    starPicker.dataset.value = val;
-    starPicker.querySelectorAll('.star').forEach(s => s.classList.toggle('filled', Number(s.dataset.value) <= val));
-  }
-  starPicker.querySelectorAll('.star').forEach(s => {
-    s.addEventListener('click', () => setStars(Number(s.dataset.value)));
-  });
-  statutCheckbox.addEventListener('change', () => {
-    niveauField.classList.toggle('visible', statutCheckbox.checked);
-    if (!statutCheckbox.checked) setStars(0);
-  });
-
   document.getElementById('btn-cancel').addEventListener('click', closeModal);
   form.addEventListener('submit', async e => {
     e.preventDefault();
     const fd = new FormData(form);
-    const niveauValue = Number(starPicker.dataset.value) || null;
     const payload = {
       nom: fd.get('nom'),
-      description: fd.get('description'),
-      statut: fd.get('statut') ? 1 : 0,
-      niveau_maitrise: fd.get('statut') ? niveauValue : null
+      description: fd.get('description')
     };
     try {
       if (editing) {
@@ -1099,7 +1060,6 @@ function renderProjetsList(res) {
   } else {
     list.innerHTML = res.data.map(p => `
       <div class="list-item">
-        <input type="checkbox" class="list-item-checkbox projet-toggle" data-id="${p.id}" ${p.statut === 1 ? 'checked' : ''}>
         <div class="list-item-main">
           <div class="list-item-title ${p.statut === 1 ? 'done' : ''}">${esc(p.titre)}</div>
           ${p.description ? `<div class="list-item-desc">${esc(p.description)}</div>` : ''}
@@ -1113,17 +1073,6 @@ function renderProjetsList(res) {
   }
   renderPagination('projets', res);
 
-  list.querySelectorAll('.projet-toggle').forEach(cb => {
-    cb.addEventListener('change', async () => {
-      try {
-        await api(`/api/projets/${cb.dataset.id}/statut`, {
-          method: 'PATCH',
-          body: JSON.stringify({ statut: cb.checked ? 1 : 0 })
-        });
-        loadProjets();
-      } catch (err) { toast(err.message, true); }
-    });
-  });
   list.querySelectorAll('.btn-edit-projet').forEach(b => b.addEventListener('click', () => openProjetModal(b.dataset.id)));
   list.querySelectorAll('.btn-delete-projet').forEach(b => b.addEventListener('click', () => deleteProjet(b.dataset.id)));
 }
@@ -1163,9 +1112,6 @@ async function openProjetModal(id) {
         <label>Description</label>
         <textarea name="description">${esc(projet?.description || '')}</textarea>
       </div>
-      <div class="field">
-        <label><input type="checkbox" name="statut" ${projet?.statut === 1 ? 'checked' : ''}> Marquer comme terminé</label>
-      </div>
       <div class="modal-actions">
         <button type="button" class="btn" id="btn-cancel">Annuler</button>
         <button type="submit" class="btn btn-primary">${editing ? 'Enregistrer' : 'Créer'}</button>
@@ -1180,7 +1126,6 @@ async function openProjetModal(id) {
     const payload = {
       titre: fd.get('titre'),
       description: fd.get('description'),
-      statut: fd.get('statut') ? 1 : 0
     };
     try {
       if (editing) {

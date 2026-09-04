@@ -47,6 +47,17 @@ function normalizeNiveau(statut, niveau) {
   return n;
 }
 
+async function hasParcours(coursId, userId) {
+  const { rows } = await pool.query(`
+    SELECT 1
+    FROM parcours_cours pc
+    JOIN parcours p ON p.id = pc.parcours_id
+    WHERE pc.cours_id = $1 AND p.user_id = $2
+    LIMIT 1
+  `, [coursId, userId]);
+  return rows.length > 0;
+}
+
 router.get('/categories', (req, res) => res.json(CATEGORIES));
 router.get('/formats', (req, res) => res.json(FORMATS));
 
@@ -118,8 +129,8 @@ router.post('/', async (req, res, next) => {
     if (!CATEGORIES.includes(categorie)) return res.status(400).json({ error: 'Catégorie invalide' });
     if (!FORMATS.includes(format)) return res.status(400).json({ error: 'Format invalide' });
 
-    const finalStatut = statut ? 1 : 0;
-    const finalNiveau = normalizeNiveau(finalStatut, niveau_maitrise);
+    const finalStatut = 0;
+    const finalNiveau = null;
 
     const insertRes = await pool.query(
       'INSERT INTO cours (user_id, titre, description, statut, categorie, format, niveau_maitrise) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
@@ -149,8 +160,8 @@ router.put('/:id', async (req, res, next) => {
     if (!CATEGORIES.includes(categorie)) return res.status(400).json({ error: 'Catégorie invalide' });
     if (!FORMATS.includes(format)) return res.status(400).json({ error: 'Format invalide' });
 
-    const finalStatut = statut ? 1 : 0;
-    const finalNiveau = normalizeNiveau(finalStatut, niveau_maitrise);
+    const finalStatut = existing.rows[0].statut;
+    const finalNiveau = existing.rows[0].niveau_maitrise;
 
     await pool.query(
       'UPDATE cours SET titre = $1, description = $2, statut = $3, categorie = $4, format = $5, niveau_maitrise = $6 WHERE id = $7 AND user_id = $8',
@@ -175,8 +186,12 @@ router.patch('/:id/statut', async (req, res, next) => {
     const existing = await pool.query('SELECT * FROM cours WHERE id = $1 AND user_id = $2', [id, req.userId]);
     if (existing.rows.length === 0) return res.status(404).json({ error: 'Cours introuvable' });
     const finalStatut = req.body.statut ? 1 : 0;
+    if (finalStatut && !(await hasParcours(id, req.userId))) {
+      return res.status(400).json({ error: 'Le cours doit appartenir à un parcours pour être terminé' });
+    }
     const finalNiveau = finalStatut ? existing.rows[0].niveau_maitrise : null;
-    await pool.query('UPDATE cours SET statut = $1, niveau_maitrise = $2 WHERE id = $3 AND user_id = $4', [finalStatut, finalNiveau, id, req.userId]);
+    const finalRevision = finalStatut ? existing.rows[0].derniere_revision : null;
+    await pool.query('UPDATE cours SET statut = $1, niveau_maitrise = $2, derniere_revision = $3 WHERE id = $4 AND user_id = $5', [finalStatut, finalNiveau, finalRevision, id, req.userId]);
     const { rows } = await pool.query('SELECT * FROM cours WHERE id = $1', [id]);
     const [withExtras] = await attachExtras(rows, req.userId);
     res.json(withExtras);

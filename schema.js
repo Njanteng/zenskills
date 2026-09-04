@@ -80,6 +80,17 @@ ALTER TABLE taches ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id)
 ALTER TABLE taches ADD COLUMN IF NOT EXISTS description TEXT DEFAULT '';
 ALTER TABLE cours ADD COLUMN IF NOT EXISTS derniere_revision DATE;
 ALTER TABLE competences ADD COLUMN IF NOT EXISTS derniere_revision DATE;
+
+UPDATE cours
+SET statut = 0, niveau_maitrise = NULL, derniere_revision = NULL
+WHERE statut = 1
+  AND NOT EXISTS (
+    SELECT 1
+    FROM parcours_cours pc
+    JOIN parcours p ON p.id = pc.parcours_id
+    WHERE pc.cours_id = cours.id
+      AND p.user_id = cours.user_id
+  );
 `;
 
 module.exports = { SCHEMA_SQL };

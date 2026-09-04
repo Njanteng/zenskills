@@ -99,6 +99,12 @@ Sur les Cours terminés et les Compétences acquises : un bouton icône **↻** 
 
 Sur le tableau de bord, deux panneaux côte à côte sur grand écran (empilés sur mobile) — **"Cours à revoir"** et **"Compétences à revoir"** — listent chacun vos 20 éléments les plus anciennement révisés (ou jamais révisés, qui passent en premier), sans condition de délai : toujours les 20 plus prioritaires, quoi qu'il arrive.
 
+## Validation depuis les vues visuelles
+
+Les onglets de gestion servent à créer, modifier et filtrer les éléments ; ils ne permettent pas de les marquer terminés et n'affichent pas leur niveau de maîtrise. Les cours sont validés uniquement dans le chemin visuel d'un parcours et doivent appartenir à au moins un parcours. Une fois validé, son niveau se règle avec les petites étoiles affichées sous le cercle. Les compétences et les projets se valident ou se désactivent en cliquant directement sur leur badge ; les compétences acquises disposent ensuite du même réglage par étoiles.
+
+Les tâches restent accessibles dans l'onglet **Tâches**, qui constitue leur point d'accès principal. Les tâches non terminées sont automatiquement affichées avant les tâches terminées.
+
 ## Vues dédiées depuis le tableau de bord
 
 Les cartes **Parcours**, **Compétences** et **Projets** du tableau de bord sont cliquables (Cours ne l'est pas) :

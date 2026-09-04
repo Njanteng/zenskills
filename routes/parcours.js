@@ -95,6 +95,20 @@ async function replaceCoursList(parcoursId, coursList, userId) {
   }
 }
 
+async function normalizeOrphanCours(userId) {
+  await pool.query(`
+    UPDATE cours
+    SET statut = 0, niveau_maitrise = NULL, derniere_revision = NULL
+    WHERE user_id = $1 AND statut = 1
+      AND NOT EXISTS (
+        SELECT 1
+        FROM parcours_cours pc
+        JOIN parcours p ON p.id = pc.parcours_id
+        WHERE pc.cours_id = cours.id AND p.user_id = $1
+      )
+  `, [userId]);
+}
+
 router.post('/', async (req, res, next) => {
   try {
     const { titre, description = '', cours = [] } = req.body;
@@ -106,6 +120,7 @@ router.post('/', async (req, res, next) => {
     );
     const parcoursId = insertRes.rows[0].id;
     await replaceCoursList(parcoursId, cours, req.userId);
+    await normalizeOrphanCours(req.userId);
 
     const { rows } = await pool.query('SELECT * FROM parcours WHERE id = $1', [parcoursId]);
     const [withCours] = await attachCours(rows);
@@ -124,6 +139,7 @@ router.put('/:id', async (req, res, next) => {
 
     await pool.query('UPDATE parcours SET titre = $1, description = $2 WHERE id = $3 AND user_id = $4', [titre.trim(), description, id, req.userId]);
     await replaceCoursList(id, cours, req.userId);
+    await normalizeOrphanCours(req.userId);
 
     const { rows } = await pool.query('SELECT * FROM parcours WHERE id = $1', [id]);
     const [withCours] = await attachCours(rows);
@@ -139,6 +155,7 @@ router.put('/:id/ordre', async (req, res, next) => {
 
     const { cours = [] } = req.body;
     await replaceCoursList(id, cours, req.userId);
+    await normalizeOrphanCours(req.userId);
 
     const { rows } = await pool.query('SELECT * FROM parcours WHERE id = $1', [id]);
     const [withCours] = await attachCours(rows);
@@ -152,6 +169,7 @@ router.delete('/:id', async (req, res, next) => {
     const existing = await pool.query('SELECT * FROM parcours WHERE id = $1 AND user_id = $2', [id, req.userId]);
     if (existing.rows.length === 0) return res.status(404).json({ error: 'Parcours introuvable' });
     await pool.query('DELETE FROM parcours WHERE id = $1 AND user_id = $2', [id, req.userId]);
+    await normalizeOrphanCours(req.userId);
     res.status(204).end();
   } catch (err) { next(err); }
 });

@@ -64,7 +64,7 @@ async function resolveLien(lien_type, lien_id, userId) {
 router.get('/', async (req, res, next) => {
   try {
     const { search = '', statut, page = 1 } = req.query;
-    const { rows } = await pool.query('SELECT * FROM taches WHERE user_id = $1 ORDER BY id DESC', [req.userId]);
+    const { rows } = await pool.query('SELECT * FROM taches WHERE user_id = $1 ORDER BY statut ASC, id DESC', [req.userId]);
     let list = await attachLien(rows);
 
     if (search.trim()) {
